@@ -1,0 +1,201 @@
+name: "Release Runway Codegen"
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_github_packages:
+        description: Publish runway-codegen to GitHub Packages.
+        required: true
+        default: true
+        type: boolean
+      publish_sonatype:
+        description: Publish runway-codegen to Sonatype Central.
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_sha: ${{ steps.commit.outputs.release_sha }}
+    steps:
+      - name: Require main branch
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "Releases can only run from main. Current ref is ${GITHUB_REF_NAME}."
+            exit 1
+          fi
+
+          if [[ "${{ inputs.publish_github_packages }}" != "true" && "${{ inputs.publish_sonatype }}" != "true" ]]; then
+            echo "At least one publish target must be selected."
+            exit 1
+          fi
+
+      - name: Checkout release commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Require successful build-test for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          run_id="$(gh run list \
+            --workflow build-test.yml \
+            --branch main \
+            --commit "$GITHUB_SHA" \
+            --json databaseId,status,conclusion \
+            --jq '.[] | select(.status == "completed" and .conclusion == "success") | .databaseId' \
+            | head -n 1)"
+
+          if [[ -z "$run_id" ]]; then
+            echo "No successful build-test workflow run found for ${GITHUB_SHA} on main."
+            echo "Push the commit to main and let build-test pass before releasing."
+            exit 1
+          fi
+
+          echo "Using successful build-test run ${run_id} for ${GITHUB_SHA}."
+
+      - name: Create timestamp version
+        id: version
+        shell: bash
+        run: |
+          version="$(date -u +'%Y.%m.%d.%H%M%S')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release version: $version"
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Commit release version
+        id: commit
+        shell: bash
+        run: |
+          mvn -B versions:set -DnewVersion=${{ steps.version.outputs.version }} -DgenerateBackupPoms=false
+
+          git switch -c main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          git commit -m "Release runway-codegen ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin HEAD:main
+
+          release_sha="$(git rev-parse HEAD)"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "Release commit: $release_sha"
+
+  publish-github:
+    name: Publish to GitHub Packages
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: inputs.publish_github_packages
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Publish parent POM
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >
+          mvn -B -N deploy -DskipTests
+          -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/${{ github.repository }}
+
+      - name: Publish runway-codegen
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >
+          mvn -B -pl runway-codegen deploy -Dmaven.test.skip=true
+          -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/${{ github.repository }}
+
+  publish-sonatype:
+    name: Publish to Sonatype Central
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: inputs.publish_sonatype
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          server-id: central
+          server-username: SONATYPE_TOKEN_USERNAME
+          server-password: SONATYPE_TOKEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: GPG_PASSPHRASE
+
+      - name: Publish parent POM
+        env:
+          SONATYPE_TOKEN_USERNAME: ${{ secrets.SONATYPE_TOKEN_USERNAME }}
+          SONATYPE_TOKEN_PASSWORD: ${{ secrets.SONATYPE_TOKEN_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: mvn -B -N -Psonatype-release deploy -DskipTests
+
+      - name: Publish runway-codegen
+        env:
+          SONATYPE_TOKEN_USERNAME: ${{ secrets.SONATYPE_TOKEN_USERNAME }}
+          SONATYPE_TOKEN_PASSWORD: ${{ secrets.SONATYPE_TOKEN_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: mvn -B -pl runway-codegen -Psonatype-release deploy -Dmaven.test.skip=true
+
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - publish-github
+      - publish-sonatype
+    if: >
+      always() &&
+      (needs.publish-github.result == 'success' || needs.publish-github.result == 'skipped') &&
+      (needs.publish-sonatype.result == 'success' || needs.publish-sonatype.result == 'skipped')
+    steps:
+      - name: Create release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="runway-codegen-v${{ needs.prepare.outputs.version }}"
+          notes="Released module:"$'\n'"- io.github.absketches:runway-codegen:${{ needs.prepare.outputs.version }}"
+          notes="${notes}"$'\n\n'"Publish targets:"
+          if [[ "${{ inputs.publish_github_packages }}" == "true" ]]; then
+            notes="${notes}"$'\n'"- GitHub Packages"
+          fi
+          if [[ "${{ inputs.publish_sonatype }}" == "true" ]]; then
+            notes="${notes}"$'\n'"- Sonatype Central"
+          fi
+
+          gh release create "$tag" --target "${{ needs.prepare.outputs.release_sha }}" --title "$tag" --notes "$notes"

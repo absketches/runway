@@ -1,0 +1,28 @@
+version: 2
+updates:
+    - package-ecosystem: "github-actions"
+      directory: "/"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "08:00"
+      open-pull-requests-limit: 1
+      groups:
+          all-actions:
+              patterns:
+                  - "*"
+
+    - package-ecosystem: "maven"
+      directory: "/"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "08:00"
+      open-pull-requests-limit: 1
+      groups:
+          all-maven:
+              patterns:
+                  - "*"
+      ignore:
+          - dependency-name: "*"
+            update-types: ["version-update:semver-major"]
