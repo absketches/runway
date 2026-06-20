@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.github.absketches</groupId>
         <artifactId>runway-parent</artifactId>
-        <version>0.1.0</version>
+        <version>2026.06.20.161313</version>
     </parent>
 
     <artifactId>runway-core</artifactId>

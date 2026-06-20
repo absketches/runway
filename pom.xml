@@ -5,7 +5,7 @@
 
     <groupId>io.github.absketches</groupId>
     <artifactId>runway-parent</artifactId>
-    <version>0.1.0</version>
+    <version>2026.06.20.161313</version>
     <packaging>pom</packaging>
 
     <name>Runway</name>
@@ -45,7 +45,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <runway-core.version>0.1.0-SNAPSHOT</runway-core.version>
-        <runway-codegen.version>0.1.0-SNAPSHOT</runway-codegen.version>
+        <runway-codegen.version>2026.06.20.161313</runway-codegen.version>
         <junit.version>5.14.4</junit.version>
         <jacoco.version>0.8.15</jacoco.version>
         <sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>
