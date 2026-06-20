@@ -1,9 +1,9 @@
 package io.github.absketches.runway;
 
-import io.github.absketches.runway.mysql.MariaDbDialect;
-import io.github.absketches.runway.mysql.MySqlDialect;
-import io.github.absketches.runway.postgresql.PostgreSqlDialect;
-import io.github.absketches.runway.sqlite.SqliteDialect;
+import io.github.absketches.runway.databases.mysql.MariaDbDialect;
+import io.github.absketches.runway.databases.mysql.MySqlDialect;
+import io.github.absketches.runway.databases.postgresql.PostgreSqlDialect;
+import io.github.absketches.runway.databases.sqlite.SqliteDialect;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -11,14 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DialectTest {
-    @Test
-    void quotesIdentifiersPerDialect() {
-        assertEquals("\"user\"\"name\"", PostgreSqlDialect.INSTANCE.quoteIdentifier("user\"name"));
-        assertEquals("`user``name`", MySqlDialect.INSTANCE.quoteIdentifier("user`name"));
-        assertEquals("`user``name`", MariaDbDialect.INSTANCE.quoteIdentifier("user`name"));
-        assertEquals("\"user\"\"name\"", SqliteDialect.INSTANCE.quoteIdentifier("user\"name"));
-    }
-
     @Test
     void exposesExplicitDialectNames() {
         assertEquals("PostgreSQL", PostgreSqlDialect.INSTANCE.name());

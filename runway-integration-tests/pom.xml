@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.github.absketches</groupId>
         <artifactId>runway-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.1.0</version>
     </parent>
 
     <artifactId>runway-integration-tests</artifactId>
@@ -19,12 +19,13 @@
         <dependency>
             <groupId>io.github.absketches</groupId>
             <artifactId>runway-core</artifactId>
-            <version>${project.version}</version>
+            <version>${runway-core.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.absketches</groupId>
             <artifactId>runway-codegen</artifactId>
-            <version>${project.version}</version>
+            <version>${runway-codegen.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.xerial</groupId>
@@ -59,10 +60,18 @@
                                 <argument>${project.basedir}/src/test/runway</argument>
                                 <argument>--output</argument>
                                 <argument>${project.build.directory}/generated-test-sources/runway</argument>
+                                <argument>--resource-output</argument>
+                                <argument>${project.build.directory}/generated-test-resources/runway</argument>
                                 <argument>--package</argument>
                                 <argument>io.github.absketches.runway.integration.generated</argument>
                                 <argument>--class-name</argument>
                                 <argument>GeneratedRunwayMigrations</argument>
+                                <argument>--dialect</argument>
+                                <argument>sqlite</argument>
+                                <argument>--graph-output</argument>
+                                <argument>${project.build.directory}/generated-test-resources/runway-graph.dot</argument>
+                                <argument>--print-info</argument>
+                                <argument>true</argument>
                             </arguments>
                         </configuration>
                     </execution>
@@ -84,25 +93,49 @@
                             </sources>
                         </configuration>
                     </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <executions>
                     <execution>
-                        <id>aggregate-coverage-report</id>
-                        <phase>verify</phase>
+                        <id>add-generated-runway-test-resources</id>
+                        <phase>generate-test-resources</phase>
                         <goals>
-                            <goal>report-aggregate</goal>
+                            <goal>add-test-resource</goal>
                         </goals>
                         <configuration>
-                            <title>Runway Coverage</title>
-                            <includeCurrentProject>false</includeCurrentProject>
+                            <resources>
+                                <resource>
+                                    <directory>${project.build.directory}/generated-test-resources/runway</directory>
+                                </resource>
+                            </resources>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>coverage</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>aggregate-coverage-report</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>report-aggregate</goal>
+                                </goals>
+                                <configuration>
+                                    <title>Runway Coverage</title>
+                                    <includeCurrentProject>false</includeCurrentProject>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

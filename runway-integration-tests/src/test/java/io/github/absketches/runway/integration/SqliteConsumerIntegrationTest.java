@@ -1,19 +1,24 @@
 package io.github.absketches.runway.integration;
 
+import io.github.absketches.runway.MigrationException;
 import io.github.absketches.runway.MigrationResult;
+import io.github.absketches.runway.Migrations;
 import io.github.absketches.runway.Runway;
 import io.github.absketches.runway.integration.generated.GeneratedRunwayMigrations;
-import io.github.absketches.runway.sqlite.SqliteDialect;
+import io.github.absketches.runway.databases.sqlite.SqliteDialect;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.sqlite.SQLiteDataSource;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SqliteConsumerIntegrationTest {
@@ -58,13 +63,47 @@ class SqliteConsumerIntegrationTest {
 
         assertTrue(second.success(), () -> second.validationErrors().toString());
         assertEquals(0, second.executed().size());
-        assertTrue(Runway.builder()
-            .dataSource(dataSource)
-            .dialect(SqliteDialect.INSTANCE)
-            .migrations(GeneratedRunwayMigrations.registry())
-            .build()
-            .validate()
-            .success());
+    }
+
+    @Test
+    void failedMigrationRollsBackChangesAndRecordsFailure() throws Exception {
+        SQLiteDataSource dataSource = new SQLiteDataSource();
+        dataSource.setUrl("jdbc:sqlite:" + tempDir.resolve("failed.sqlite"));
+        var registry = Migrations.builder()
+            .versioned(
+                "1",
+                "failing migration",
+                "sha256:test",
+                resourcePath -> new ByteArrayInputStream((switch (resourcePath) {
+                    case "/create.sql" -> "create table should_rollback (id integer primary key);\n";
+                    case "/fail.sql" -> "insert into missing_table (id) values (1);\n";
+                    default -> throw new IllegalArgumentException("Unexpected resource: " + resourcePath);
+                }).getBytes(StandardCharsets.UTF_8)),
+                List.of(
+                    "/create.sql",
+                    "/fail.sql"
+                )
+            )
+            .build();
+
+        assertThrows(
+            MigrationException.class,
+            () -> Runway.migrate(dataSource, SqliteDialect.INSTANCE, registry)
+        );
+
+        try (Connection connection = dataSource.getConnection()) {
+            assertEquals(0, singleInt(
+                connection,
+                "select count(*) from sqlite_master where type = 'table' and name = 'should_rollback'"
+            ));
+            assertEquals(1, singleInt(connection, "select count(*) from runway_schema_history where success = 0"));
+        }
+
+        MigrationException retry = assertThrows(
+            MigrationException.class,
+            () -> Runway.migrate(dataSource, SqliteDialect.INSTANCE, registry)
+        );
+        assertTrue(retry.getMessage().contains("Migration previously failed"));
     }
 
     private static String singleString(Connection connection, String sql) throws Exception {
@@ -101,7 +140,7 @@ class SqliteConsumerIntegrationTest {
         versions.add("26");
         versions.add("79");
         versions.add("101");
-        versions.add(null);
+        versions.add("102");
         return versions;
     }
 }

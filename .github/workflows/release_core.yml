@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           run_id="$(gh run list \
-            --workflow build-test.yml \
+            --workflow build_test.yml \
             --branch main \
             --commit "$GITHUB_SHA" \
             --json databaseId,status,conclusion \
@@ -86,12 +86,29 @@ jobs:
         id: commit
         shell: bash
         run: |
-          mvn -B versions:set -DnewVersion=${{ steps.version.outputs.version }} -DgenerateBackupPoms=false
+          mvn -B -N versions:set \
+            -DnewVersion=${{ steps.version.outputs.version }} \
+            -DgenerateBackupPoms=false
+          mvn -B versions:update-child-modules \
+            -DgenerateBackupPoms=false
+          mvn -B -f runway-core/pom.xml versions:set \
+            -DnewVersion=${{ steps.version.outputs.version }} \
+            -DgenerateBackupPoms=false \
+            -DprocessParent=false
+          mvn -B -N versions:set-property \
+            -Dproperty=runway-core.version \
+            -DnewVersion=${{ steps.version.outputs.version }} \
+            -DgenerateBackupPoms=false
+          mvn -B -pl runway-integration-tests -am verify
 
           git switch -c main
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pom.xml
+          git add pom.xml runway-core/pom.xml runway-codegen/pom.xml runway-integration-tests/pom.xml
+          if git diff --cached --quiet; then
+            echo "No release version changes were staged."
+            exit 1
+          fi
           git commit -m "Release runway-core ${{ steps.version.outputs.version }} [skip ci]"
           git push origin HEAD:main
 
@@ -189,7 +206,8 @@ jobs:
         shell: bash
         run: |
           tag="runway-core-v${{ needs.prepare.outputs.version }}"
-          notes="Released module:"$'\n'"- io.github.absketches:runway-core:${{ needs.prepare.outputs.version }}"
+          notes="Released artifacts:"$'\n'"- io.github.absketches:runway-parent:${{ needs.prepare.outputs.version }}"
+          notes="${notes}"$'\n'"- io.github.absketches:runway-core:${{ needs.prepare.outputs.version }}"
           notes="${notes}"$'\n\n'"Publish targets:"
           if [[ "${{ inputs.publish_github_packages }}" == "true" ]]; then
             notes="${notes}"$'\n'"- GitHub Packages"

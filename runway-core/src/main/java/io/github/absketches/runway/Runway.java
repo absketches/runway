@@ -1,9 +1,18 @@
 package io.github.absketches.runway;
 
+import io.github.absketches.runway.history.AppliedMigration;
+import io.github.absketches.runway.history.JdbcSchemaHistoryRepository;
+import io.github.absketches.runway.history.SchemaHistoryRepository;
+import io.github.absketches.runway.planning.MigrationPlan;
+import io.github.absketches.runway.planning.MigrationPlanService;
+
 import javax.sql.DataSource;
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -15,32 +24,28 @@ public final class Runway {
     private final DatabaseDialect dialect;
     private final MigrationRegistry migrations;
     private final SchemaHistoryRepository history;
-    private final MigrationPlanService planner;
 
-    private Runway(Builder builder) {
-        this.dataSource = Objects.requireNonNull(builder.dataSource, "dataSource");
-        this.dialect = Objects.requireNonNull(builder.dialect, "dialect");
-        this.migrations = Objects.requireNonNull(builder.migrations, "migrations");
+    private Runway(DataSource dataSource, DatabaseDialect dialect, MigrationRegistry migrations) {
+        this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
+        this.dialect = Objects.requireNonNull(dialect, "dialect");
+        this.migrations = Objects.requireNonNull(migrations, "migrations");
         this.history = new JdbcSchemaHistoryRepository(dialect.historyTableStatements());
-        this.planner = new MigrationPlanService();
     }
 
     public static MigrationResult migrate(DataSource dataSource, DatabaseDialect dialect, MigrationRegistry migrations) {
-        return builder().dataSource(dataSource).dialect(dialect).migrations(migrations).build().migrate();
+        return new Runway(dataSource, dialect, migrations).migrate();
     }
 
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public MigrationResult migrate() {
-        return withConnection(connection -> {
+    private MigrationResult migrate() {
+        validateDialect();
+        try (Connection connection = dataSource.getConnection()) {
             dialect.migrationLock().acquire(connection);
             try {
                 history.createIfMissing(connection);
                 List<AppliedMigration> applied = history.findAll(connection);
-                MigrationPlan plan = planner.plan(migrations.migrations(), applied);
+                MigrationPlan plan = MigrationPlanService.plan(migrations.migrations(), applied);
                 if (!plan.valid()) {
+                    throwIfFailedMigrationExists(plan);
                     return new MigrationResult(false, List.of(), plan.validationErrors());
                 }
 
@@ -53,15 +58,30 @@ public final class Runway {
             } finally {
                 dialect.migrationLock().release(connection);
             }
-        });
+        } catch (SQLException e) {
+            throw new MigrationException("Runway database operation failed", e);
+        }
     }
 
-    public MigrationResult validate() {
-        return withConnection(connection -> {
-            history.createIfMissing(connection);
-            MigrationPlan plan = planner.plan(migrations.migrations(), history.findAll(connection));
-            return new MigrationResult(plan.valid(), List.of(), plan.validationErrors());
-        });
+    private void validateDialect() {
+        String registryDialect = migrations.dialectName();
+        if (registryDialect == null || registryDialect.isBlank()) {
+            return;
+        }
+        if (!registryDialect.equals(dialect.name())) {
+            throw new MigrationException(
+                "Runway migration registry was generated for " + registryDialect
+                    + " but runtime dialect is " + dialect.name()
+            );
+        }
+    }
+
+    private static void throwIfFailedMigrationExists(MigrationPlan plan) {
+        for (ValidationError error : plan.validationErrors()) {
+            if (error.code() == ValidationErrorCode.FAILED_MIGRATION) {
+                throw new MigrationException(error.message());
+            }
+        }
     }
 
     private void executeMigration(Connection connection, MigrationDefinition migration) throws SQLException {
@@ -69,65 +89,55 @@ public final class Runway {
         long started = System.nanoTime();
         try {
             connection.setAutoCommit(false);
-            for (SqlStatement sqlStatement : dialect.sqlScriptParser().parse(migration.sql(), migration.script())) {
+            for (String resourcePath : migration.statementResources()) {
+                String sql = readStatement(migration, resourcePath);
                 try (Statement statement = connection.createStatement()) {
-                    statement.execute(sqlStatement.sql());
+                    statement.execute(sql);
                 }
             }
-            connection.commit();
             history.recordSuccess(connection, migration, elapsedMs(started), ENGINE_VERSION);
+            connection.commit();
         } catch (SQLException | RuntimeException e) {
             try {
                 connection.rollback();
             } catch (SQLException rollbackFailure) {
                 e.addSuppressed(rollbackFailure);
             }
-            history.recordFailure(connection, migration, elapsedMs(started), ENGINE_VERSION);
+            try {
+                history.recordFailure(connection, migration, elapsedMs(started), ENGINE_VERSION);
+                connection.commit();
+            } catch (SQLException historyFailure) {
+                e.addSuppressed(historyFailure);
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackFailure) {
+                    historyFailure.addSuppressed(rollbackFailure);
+                }
+            }
             throw e;
         } finally {
             connection.setAutoCommit(originalAutoCommit);
         }
     }
 
-    private long elapsedMs(long started) {
+    private static String readStatement(MigrationDefinition migration, String resourcePath) {
+        try (InputStream input = migration.resourceLoader().apply(resourcePath)) {
+            if (input == null) {
+                throw new MigrationException(
+                    "SQL resource not found for " + migration.script() + ": " + resourcePath
+                );
+            }
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new MigrationException(
+                "Failed to read SQL resource for " + migration.script() + ": " + resourcePath,
+                e
+            );
+        }
+    }
+
+    private static long elapsedMs(long started) {
         return (System.nanoTime() - started) / 1_000_000;
     }
 
-    private <T> T withConnection(JdbcOperation<T> operation) {
-        try (Connection connection = dataSource.getConnection()) {
-            return operation.run(connection);
-        } catch (SQLException e) {
-            throw new MigrationException("Runway database operation failed", e);
-        }
-    }
-
-    @FunctionalInterface
-    private interface JdbcOperation<T> {
-        T run(Connection connection) throws SQLException;
-    }
-
-    public static final class Builder {
-        private DataSource dataSource;
-        private DatabaseDialect dialect;
-        private MigrationRegistry migrations;
-
-        public Builder dataSource(DataSource dataSource) {
-            this.dataSource = dataSource;
-            return this;
-        }
-
-        public Builder dialect(DatabaseDialect dialect) {
-            this.dialect = dialect;
-            return this;
-        }
-
-        public Builder migrations(MigrationRegistry migrations) {
-            this.migrations = migrations;
-            return this;
-        }
-
-        public Runway build() {
-            return new Runway(this);
-        }
-    }
 }

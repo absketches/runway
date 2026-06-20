@@ -1,55 +1,52 @@
 package io.github.absketches.runway;
 
+import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
+import java.util.function.Function;
 
 public final class Migrations {
     private Migrations() {
     }
 
     public static Builder builder() {
-        return new Builder();
+        return new Builder("");
+    }
+
+    public static Builder builder(String dialectName) {
+        return new Builder(dialectName);
     }
 
     public static final class Builder {
         private final List<MigrationDefinition> migrations = new ArrayList<>();
+        private final String dialectName;
 
-        public Builder versioned(String version, String description, String checksum, String sql) {
+        private Builder(String dialectName) {
+            this.dialectName = dialectName == null ? "" : dialectName;
+        }
+
+        public Builder versioned(
+            String version,
+            String description,
+            String checksum,
+            Function<String, InputStream> resourceLoader,
+            List<String> statementResources
+        ) {
             migrations.add(new MigrationDefinition(
-                MigrationType.VERSIONED,
                 MigrationVersion.of(version),
                 description,
                 checksum,
-                sql
-            ));
-            return this;
-        }
-
-        public Builder repeatable(String description, String checksum, String sql) {
-            migrations.add(new MigrationDefinition(
-                MigrationType.REPEATABLE,
-                null,
-                description,
-                checksum,
-                sql
+                resourceLoader,
+                statementResources
             ));
             return this;
         }
 
         public MigrationRegistry build() {
             List<MigrationDefinition> sorted = migrations.stream()
-                .sorted(Migrations::compare)
+                .sorted(MigrationDefinition::compare)
                 .toList();
-            return () -> sorted;
+            return new MigrationRegistry(sorted, dialectName);
         }
-    }
-
-    public static int compare(MigrationDefinition left, MigrationDefinition right) {
-        Comparator<MigrationDefinition> comparator = Comparator
-            .comparing((MigrationDefinition migration) -> migration.type() == MigrationType.REPEATABLE ? 1 : 0)
-            .thenComparing(migration -> migration.version() == null ? MigrationVersion.of("0") : migration.version())
-            .thenComparing(MigrationDefinition::description);
-        return comparator.compare(left, right);
     }
 }

@@ -5,22 +5,17 @@
     <parent>
         <groupId>io.github.absketches</groupId>
         <artifactId>runway-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.1.0</version>
     </parent>
 
     <artifactId>runway-codegen</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
     <name>Runway Codegen</name>
 
     <dependencies>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.github.absketches</groupId>
-            <artifactId>runway-core</artifactId>
-            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
