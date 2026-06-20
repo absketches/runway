@@ -216,4 +216,8 @@ jobs:
             notes="${notes}"$'\n'"- Sonatype Central"
           fi
 
-          gh release create "$tag" --target "${{ needs.prepare.outputs.release_sha }}" --title "$tag" --notes "$notes"
+          gh release create "$tag" \
+            --repo "${{ github.repository }}" \
+            --target "${{ needs.prepare.outputs.release_sha }}" \
+            --title "$tag" \
+            --notes "$notes"
