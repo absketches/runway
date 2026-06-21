@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>runway-core</artifactId>
-    <version>2026.06.20.164944</version>
+    <version>2026.06.21.073447</version>
     <name>Runway Core</name>
 
     <dependencies>
