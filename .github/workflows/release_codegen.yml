@@ -46,26 +46,41 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Require successful build-test for this commit
+      - name: Require successful build-test for verified source commit
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          verified_sha="$GITHUB_SHA"
+          while git log -1 --format=%B "$verified_sha" | grep -Eq '(^Release runway-|\[skip ci\])'; do
+            parent="$(git rev-parse "${verified_sha}^" 2>/dev/null || true)"
+            if [[ -z "$parent" ]]; then
+              echo "Could not find a non-release commit before ${GITHUB_SHA}."
+              exit 1
+            fi
+            verified_sha="$parent"
+          done
+
           run_id="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
             --workflow build_test.yml \
             --branch main \
-            --commit "$GITHUB_SHA" \
+            --commit "$verified_sha" \
+            --limit 100 \
             --json databaseId,status,conclusion \
             --jq '.[] | select(.status == "completed" and .conclusion == "success") | .databaseId' \
             | head -n 1)"
 
           if [[ -z "$run_id" ]]; then
-            echo "No successful build-test workflow run found for ${GITHUB_SHA} on main."
-            echo "Push the commit to main and let build-test pass before releasing."
+            echo "No successful build-test workflow run found for ${verified_sha} on main."
+            echo "Push the source commit to main and let build-test pass before releasing."
             exit 1
           fi
 
-          echo "Using successful build-test run ${run_id} for ${GITHUB_SHA}."
+          if [[ "$verified_sha" != "$GITHUB_SHA" ]]; then
+            echo "Current commit ${GITHUB_SHA} is a release or skip-ci commit."
+          fi
+          echo "Using successful build-test run ${run_id} for verified source commit ${verified_sha}."
 
       - name: Create timestamp version
         id: version
@@ -178,6 +193,7 @@ jobs:
       - publish-sonatype
     if: >
       always() &&
+      needs.prepare.result == 'success' &&
       (needs.publish-github.result == 'success' || needs.publish-github.result == 'skipped') &&
       (needs.publish-sonatype.result == 'success' || needs.publish-sonatype.result == 'skipped')
     steps:

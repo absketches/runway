@@ -96,6 +96,8 @@
                                 <argument>GeneratedRunwayMigrations</argument>
                                 <argument>--dialect</argument>
                                 <argument>sqlite</argument>
+                                <argument>--impact-output</argument>
+                                <argument>${project.build.directory}/generated-test-resources/runway-impact.html</argument>
                             </arguments>
                         </configuration>
                     </execution>
