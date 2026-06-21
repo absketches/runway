@@ -120,22 +120,31 @@ class RunwayGeneratorTest {
         Files.createDirectories(input);
         String sql = "insert into messages (content) values ('Grüße');\n";
         Files.writeString(input.resolve("V1__message.sql"), sql, StandardCharsets.UTF_8);
-        Path graph = tempDir.resolve("graph.dot");
+        Path impactReport = tempDir.resolve("impact.html");
 
-        CodegenOptions options = options(input, graph);
+        CodegenOptions options = options(input, impactReport);
         new RunwayGenerator().generate(options);
 
         Path statement = options.resourceOutput().resolve(
             "io/github/absketches/runway/generated/runway/V1__message/statement-000.sql"
         );
         assertEquals(sql, Files.readString(statement, StandardCharsets.UTF_8));
-        String graphSource = Files.readString(graph);
-        assertTrue(graphSource.contains("column messages.content"));
-        assertTrue(graphSource.contains("label=\"writes\""));
+        String report = Files.readString(impactReport);
+        assertTrue(report.contains("<!doctype html>"));
+        assertTrue(report.contains("<input id=\"search\""));
+        assertTrue(report.contains("<button id=\"clear-selection\" type=\"button\" disabled>Clear selection</button>"));
+        assertTrue(report.contains("row.classList.toggle(\"selected\")"));
+        assertTrue(report.contains("messages (table)"));
+        assertTrue(report.contains("columns"));
+        assertTrue(report.contains("data-column-search=\"messages (table) columns content messages.content\""));
+        assertTrue(report.contains(">content</th>"));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V1__message.sql\" data-status=\"data changes\""));
+        assertTrue(report.contains("<span class=\"marker data\">D</span>"));
+        assertTrue(report.contains("<td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
     }
 
     @Test
-    void graphShowsReadAndWriteImpact() throws Exception {
+    void impactReportShowsResourceGridAndConsolidationStatus() throws Exception {
         Path input = tempDir.resolve("runway");
         Files.createDirectories(input);
         Files.writeString(input.resolve("V1__update_users.sql"), """
@@ -144,16 +153,75 @@ class RunwayGeneratorTest {
             from roles r
             where u.role_id = r.id;
             """);
-        Path graph = tempDir.resolve("graph.dot");
+        Files.writeString(input.resolve("V2__rewrite_status.sql"), """
+            update users
+            set status = 'active';
+            """);
+        Files.writeString(input.resolve("V3__index_users_status.sql"), """
+            create index users_status_idx
+            on users (status);
+            """);
+        Files.writeString(input.resolve("V4__create_user_names_legacy.sql"), """
+            create view user_names as
+            select id
+            from users;
+            """);
+        Files.writeString(input.resolve("V5__create_reporting_views.sql"), """
+            create view user_ids as
+            select id
+            from users;
 
-        new RunwayGenerator().generate(options(input, graph));
+            create view role_names as
+            select id
+            from roles;
+            """);
+        Files.writeString(input.resolve("V6__replace_user_names.sql"), """
+            drop view if exists user_names;
 
-        String graphSource = Files.readString(graph);
-        assertTrue(graphSource.contains("column roles.default_status"));
-        assertTrue(graphSource.contains("column users.status"));
-        assertTrue(graphSource.contains("label=\"reads\""));
-        assertTrue(graphSource.contains("label=\"writes\""));
-        assertTrue(graphSource.contains("analysis incomplete"));
+            create view user_names as
+            select id, status
+            from users;
+            """);
+        Files.writeString(input.resolve("V7__replace_user_ids.sql"), """
+            drop view if exists user_ids;
+
+            create view user_ids as
+            select id, status
+            from users;
+            """);
+        Files.writeString(input.resolve("V8__data_change_with_unknown.sql"), """
+            update users
+            set status = 'active';
+
+            grant select on users to reporting;
+            """);
+        Path impactReport = tempDir.resolve("impact.html");
+
+        new RunwayGenerator().generate(options(input, impactReport));
+
+        String report = Files.readString(impactReport);
+        assertTrue(report.contains("<h2>Table and Object Matrix</h2>"));
+        assertTrue(report.contains("users (table)"));
+        assertTrue(report.contains("roles (table)"));
+        assertTrue(report.contains("database objects"));
+        assertTrue(report.contains(">indexes</th>"));
+        assertTrue(report.indexOf(">database objects</th>") > report.indexOf(">roles (table)</th>"));
+        assertTrue(report.contains(">users_status_idx</th>"));
+        assertTrue(!report.contains("<th>(table)</th>"));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V3__index_users_status.sql\" data-status=\"active\""));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V2__rewrite_status.sql\" data-status=\"data changes\""));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V1__update_users.sql\" data-status=\"data changes\""));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V8__data_change_with_unknown.sql\" data-status=\"incomplete analysis\""));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V5__create_reporting_views.sql\" data-status=\"partial merge candidate\""));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V4__create_user_names_legacy.sql\" data-status=\"merge candidate\""));
+        assertTrue(report.contains("title=\"Superseded by V6__replace_user_names.sql\">w</span>"));
+        assertTrue(report.contains("<h2>Consolidation Candidates</h2>"));
+        assertTrue(report.contains("<td><code>V3__index_users_status.sql</code></td><td class=\"number\">1</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"active\">active</td>"));
+        assertTrue(report.contains("<td><code>V2__rewrite_status.sql</code></td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
+        assertTrue(report.contains("<td><code>V1__update_users.sql</code></td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
+        assertTrue(report.contains("<td><code>V8__data_change_with_unknown.sql</code></td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"incomplete\">incomplete analysis</td>"));
+        assertTrue(report.contains("<td><code>V5__create_reporting_views.sql</code></td><td class=\"number\">2</td><td class=\"number\">1</td><td class=\"number\">1</td><td class=\"merge-target\"><div><code>V7__replace_user_ids.sql</code><span class=\"points\">views.user_ids</span></div></td><td class=\"partial\">partial merge candidate</td>"));
+        assertTrue(report.contains("<td><code>V4__create_user_names_legacy.sql</code></td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"merge-target\"><div><code>V6__replace_user_names.sql</code><span class=\"points\">views.user_names</span></div></td><td class=\"merge\">merge candidate</td>"));
     }
 
     @Test
@@ -283,7 +351,7 @@ class RunwayGeneratorTest {
         assertTrue(exception.getMessage().contains("Invalid migration filename"));
     }
 
-    private CodegenOptions options(Path input, Path graph) {
+    private CodegenOptions options(Path input, Path impactReport) {
         return new CodegenOptions(
             input,
             tempDir.resolve("sources"),
@@ -291,8 +359,7 @@ class RunwayGeneratorTest {
             PACKAGE_NAME,
             CLASS_NAME,
             CodegenDialect.SQLITE,
-            graph,
-            false
+            impactReport
         );
     }
 

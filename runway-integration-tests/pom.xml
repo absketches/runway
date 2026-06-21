@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.github.absketches</groupId>
         <artifactId>runway-parent</artifactId>
-        <version>2026.06.20.164944</version>
+        <version>0.1.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>runway-integration-tests</artifactId>
@@ -13,6 +13,10 @@
 
     <properties>
         <maven.deploy.skip>true</maven.deploy.skip>
+        <embedded-postgres.version>2.2.2</embedded-postgres.version>
+        <mariadb4j.version>3.3.1</mariadb4j.version>
+        <mariadb-java-client.version>3.5.9</mariadb-java-client.version>
+        <postgresql-jdbc.version>42.7.4</postgresql-jdbc.version>
     </properties>
 
     <dependencies>
@@ -34,6 +38,30 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>ch.vorburger.mariaDB4j</groupId>
+            <artifactId>mariaDB4j</artifactId>
+            <version>${mariadb4j.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>${mariadb-java-client.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql-jdbc.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <version>${embedded-postgres.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -47,7 +75,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>generate-runway-test-migrations</id>
+                        <id>generate-sqlite-runway-test-migrations</id>
                         <phase>generate-test-sources</phase>
                         <goals>
                             <goal>java</goal>
@@ -63,15 +91,61 @@
                                 <argument>--resource-output</argument>
                                 <argument>${project.build.directory}/generated-test-resources/runway</argument>
                                 <argument>--package</argument>
-                                <argument>io.github.absketches.runway.integration.generated</argument>
+                                <argument>io.github.absketches.runway.integration.generated.sqlite</argument>
                                 <argument>--class-name</argument>
                                 <argument>GeneratedRunwayMigrations</argument>
                                 <argument>--dialect</argument>
                                 <argument>sqlite</argument>
-                                <argument>--graph-output</argument>
-                                <argument>${project.build.directory}/generated-test-resources/runway-graph.dot</argument>
-                                <argument>--print-info</argument>
-                                <argument>true</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-mysql-runway-test-migrations</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>io.github.absketches.runway.codegen.RunwayCodegen</mainClass>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>--input</argument>
+                                <argument>${project.basedir}/src/test/runway</argument>
+                                <argument>--output</argument>
+                                <argument>${project.build.directory}/generated-test-sources/runway</argument>
+                                <argument>--resource-output</argument>
+                                <argument>${project.build.directory}/generated-test-resources/runway</argument>
+                                <argument>--package</argument>
+                                <argument>io.github.absketches.runway.integration.generated.mysql</argument>
+                                <argument>--class-name</argument>
+                                <argument>GeneratedRunwayMigrations</argument>
+                                <argument>--dialect</argument>
+                                <argument>mysql</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-postgresql-runway-test-migrations</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>io.github.absketches.runway.codegen.RunwayCodegen</mainClass>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>--input</argument>
+                                <argument>${project.basedir}/src/test/runway</argument>
+                                <argument>--output</argument>
+                                <argument>${project.build.directory}/generated-test-sources/runway</argument>
+                                <argument>--resource-output</argument>
+                                <argument>${project.build.directory}/generated-test-resources/runway</argument>
+                                <argument>--package</argument>
+                                <argument>io.github.absketches.runway.integration.generated.postgresql</argument>
+                                <argument>--class-name</argument>
+                                <argument>GeneratedRunwayMigrations</argument>
+                                <argument>--dialect</argument>
+                                <argument>postgresql</argument>
                             </arguments>
                         </configuration>
                     </execution>

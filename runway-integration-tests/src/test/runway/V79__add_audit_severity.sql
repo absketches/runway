@@ -1,2 +1,2 @@
 alter table audit_log
-add column severity text not null default 'INFO';
+add column severity varchar(20) not null default 'INFO';

@@ -86,11 +86,6 @@ jobs:
         id: commit
         shell: bash
         run: |
-          mvn -B -N versions:set \
-            -DnewVersion=${{ steps.version.outputs.version }} \
-            -DgenerateBackupPoms=false
-          mvn -B versions:update-child-modules \
-            -DgenerateBackupPoms=false
           mvn -B -f runway-codegen/pom.xml versions:set \
             -DnewVersion=${{ steps.version.outputs.version }} \
             -DgenerateBackupPoms=false \
@@ -104,7 +99,7 @@ jobs:
           git switch -c main
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pom.xml runway-core/pom.xml runway-codegen/pom.xml runway-integration-tests/pom.xml
+          git add pom.xml runway-codegen/pom.xml
           if git diff --cached --quiet; then
             echo "No release version changes were staged."
             exit 1
@@ -137,13 +132,6 @@ jobs:
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
 
-      - name: Publish parent POM
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: >
-          mvn -B -N deploy -DskipTests
-          -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/${{ github.repository }}
-
       - name: Publish runway-codegen
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -174,13 +162,6 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
-      - name: Publish parent POM
-        env:
-          SONATYPE_TOKEN_USERNAME: ${{ secrets.SONATYPE_TOKEN_USERNAME }}
-          SONATYPE_TOKEN_PASSWORD: ${{ secrets.SONATYPE_TOKEN_PASSWORD }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: mvn -B -N -Psonatype-release deploy -DskipTests
-
       - name: Publish runway-codegen
         env:
           SONATYPE_TOKEN_USERNAME: ${{ secrets.SONATYPE_TOKEN_USERNAME }}
@@ -206,8 +187,7 @@ jobs:
         shell: bash
         run: |
           tag="runway-codegen-v${{ needs.prepare.outputs.version }}"
-          notes="Released artifacts:"$'\n'"- io.github.absketches:runway-parent:${{ needs.prepare.outputs.version }}"
-          notes="${notes}"$'\n'"- io.github.absketches:runway-codegen:${{ needs.prepare.outputs.version }}"
+          notes="Released artifacts:"$'\n'"- io.github.absketches:runway-codegen:${{ needs.prepare.outputs.version }}"
           notes="${notes}"$'\n\n'"Publish targets:"
           if [[ "${{ inputs.publish_github_packages }}" == "true" ]]; then
             notes="${notes}"$'\n'"- GitHub Packages"

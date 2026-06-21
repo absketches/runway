@@ -1,6 +1,5 @@
 package io.github.absketches.runway.codegen;
 
-import io.github.absketches.runway.codegen.analysis.ColumnReference;
 import io.github.absketches.runway.codegen.analysis.SqlImpact;
 import io.github.absketches.runway.codegen.analysis.SqlImpactAnalyzer;
 import io.github.absketches.runway.codegen.migration.ChecksumCalculator;
@@ -10,7 +9,7 @@ import io.github.absketches.runway.codegen.migration.ParsedMigrationName;
 import io.github.absketches.runway.codegen.migration.ParsedStatement;
 import io.github.absketches.runway.codegen.migration.VersionKey;
 import io.github.absketches.runway.codegen.output.JavaSourceWriter;
-import io.github.absketches.runway.codegen.output.MigrationGraphWriter;
+import io.github.absketches.runway.codegen.output.MigrationImpactReportWriter;
 import io.github.absketches.runway.codegen.sql.SqlNormalizer;
 import io.github.absketches.runway.codegen.sql.SqlStatementSplitter;
 import io.github.absketches.runway.codegen.sql.SqlFeatureValidator;
@@ -43,7 +42,7 @@ final class RunwayGenerator {
             }
             validateDuplicates(migrations);
             Map<ParsedStatement, SqlImpact> analysis =
-                options.graphOutput() != null || options.printInfo()
+                options.impactOutput() != null
                     ? analyze(migrations)
                     : Map.of();
 
@@ -66,10 +65,7 @@ final class RunwayGenerator {
             writeMigrationSources(options, packageDirectory, migrations);
             writeResources(options, migrations);
             writeNativeImageMetadata(options);
-            writeGraph(options, migrations, analysis);
-            if (options.printInfo()) {
-                printInfo(migrations, analysis);
-            }
+            writeImpactReport(options, migrations, analysis);
         } catch (IOException e) {
             throw new CodegenException("Failed to generate Runway migration registry", e);
         }
@@ -140,22 +136,25 @@ final class RunwayGenerator {
         Files.writeString(path, source, StandardCharsets.UTF_8);
     }
 
-    private static void writeGraph(
+    private static void writeImpactReport(
         CodegenOptions options,
         List<ParsedMigration> migrations,
         Map<ParsedStatement, SqlImpact> analysis
     ) throws IOException {
-        if (options.graphOutput() == null) {
+        if (options.impactOutput() == null) {
             return;
         }
-        Path parent = options.graphOutput().getParent();
+        Path parent = options.impactOutput().getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
         Files.writeString(
-            options.graphOutput(),
-            MigrationGraphWriter.write(migrations, analysis),
+            options.impactOutput(),
+            MigrationImpactReportWriter.write(migrations, analysis),
             StandardCharsets.UTF_8
+        );
+        System.out.println(
+            "Runway codegen generated impact analysis: " + options.impactOutput().toAbsolutePath().normalize()
         );
     }
 
@@ -185,32 +184,6 @@ final class RunwayGenerator {
         ), StandardCharsets.UTF_8);
     }
 
-    private static void printInfo(
-        List<ParsedMigration> migrations,
-        Map<ParsedStatement, SqlImpact> analysis
-    ) {
-        for (ParsedMigration migration : migrations) {
-            String name = "V" + migration.version() + " " + migration.description();
-            System.out.println(name);
-            for (int index = 0; index < migration.statements().size(); index++) {
-                SqlImpact impact = analysis.get(migration.statements().get(index));
-                System.out.println("  " + index + " " + impact.type()
-                    + (impact.analysisComplete() ? "" : " [incomplete]"));
-                if (!impact.readTables().isEmpty() || !impact.readColumns().isEmpty()) {
-                    System.out.println("    reads tables=" + impact.readTables()
-                        + " columns=" + columnNames(impact.readColumns()));
-                }
-                if (!impact.writtenTables().isEmpty() || !impact.writtenColumns().isEmpty()) {
-                    System.out.println("    writes tables=" + impact.writtenTables()
-                        + " columns=" + columnNames(impact.writtenColumns()));
-                }
-                if (!impact.schemaObject().isEmpty()) {
-                    System.out.println("    schema object=" + impact.schemaObject());
-                }
-            }
-        }
-    }
-
     private static Map<ParsedStatement, SqlImpact> analyze(List<ParsedMigration> migrations) {
         Map<ParsedStatement, SqlImpact> analysis = new LinkedHashMap<>();
         for (ParsedMigration migration : migrations) {
@@ -219,10 +192,6 @@ final class RunwayGenerator {
             }
         }
         return Map.copyOf(analysis);
-    }
-
-    private static List<String> columnNames(List<ColumnReference> columns) {
-        return columns.stream().map(ColumnReference::qualifiedName).toList();
     }
 
     private static String resourceDirectoryName(Path path) {

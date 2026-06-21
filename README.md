@@ -21,7 +21,7 @@ for example a future `MySql8Dialect.INSTANCE`.
 ## Modules
 
 - `runway-core`: API, planner, resource-backed JDBC runtime, PostgreSQL, MySQL, MariaDB and SQLite dialects.
-- `runway-codegen`: standalone SQL compiler that generates statement resources, impact metadata and an optional graph.
+- `runway-codegen`: standalone SQL compiler that generates statement resources and optional impact reports.
 - `runway-integration-tests`: consumer-style SQLite integration tests.
 
 ### Package Structure
@@ -205,8 +205,7 @@ java -cp runway-codegen/target/runway-codegen-<version>.jar \
   --package io.github.absketches.runway.generated \
   --class-name GeneratedRunwayMigrations \
   --dialect postgresql \
-  --graph-output build/reports/runway/migrations.dot \
-  --print-info true
+  --impact-output build/reports/runway/impact.html
 ```
 
 
@@ -246,9 +245,13 @@ These dialects are supported at the moment:
 - `sqlite`
 
 Codegen splits files into ordered statement resources. Core receives only their ordered resource paths; impact metadata is
-not generated into runtime classes. Supplying `--graph-output` or enabling `--print-info` runs and outputs impact
-analysis. DOT output connects tables and columns to migration statements with directional `reads` and `writes` edges,
-while `--print-info` prints the same analysis as text.
+not generated into runtime classes. Supplying `--impact-output` runs impact analysis, emits a standalone HTML report with
+sticky headers, search, status filtering, and a table/column matrix with SQL files in chronological descending order, and
+prints the generated report path to the console. The report includes a `database objects` group for indexes, views, and
+other schema objects. A file is marked as a `merge candidate` only when every schema data point it touches is represented
+again by a later SQL file. This is a consolidation signal, not an instruction to delete historical migrations. DML and
+incomplete non-DML analysis are reported separately; incomplete analysis takes precedence when a file contains both. The
+consolidation table lists the later file and schema point that supersede each older schema write.
 *Procedure and function definitions are not supported at the moment*
 
 Codegen handles MySQL/MariaDB `DELIMITER` directives while splitting and removes them from generated JDBC statements.
@@ -276,6 +279,10 @@ Published artifacts:
 
 `runway-integration-tests` is marked with `maven.deploy.skip=true` and is never published.
 
-The parent POM is a stable build parent. `runway-core` and `runway-codegen` carry explicit module versions and are released
-independently. Releasing one module also releases a new parent POM version, updates every child POM to point at that
-parent, and updates only the released module's version pointer in the parent POM.
+The parent POM is a private build parent for this repository and is not published. `runway-core` and `runway-codegen`
+carry explicit module versions and are released independently. Their published POMs are flattened so consumers only need
+the artifact they use, not `runway-parent`.
+
+When one artifact is released, the workflow updates only that artifact's POM and the matching version property in the
+root POM. The release commit uses `[skip ci]`, so the repository references move forward without starting another
+build-test cycle.

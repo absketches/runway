@@ -5,7 +5,7 @@
 
     <groupId>io.github.absketches</groupId>
     <artifactId>runway-parent</artifactId>
-    <version>2026.06.20.164944</version>
+    <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Runway</name>
@@ -97,6 +97,11 @@
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>1.7.3</version>
                 </plugin>
             </plugins>
         </pluginManagement>

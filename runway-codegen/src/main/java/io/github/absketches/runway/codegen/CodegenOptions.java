@@ -15,8 +15,7 @@ record CodegenOptions(
     String packageName,
     String className,
     CodegenDialect dialect,
-    Path graphOutput,
-    boolean printInfo
+    Path impactOutput
 ) {
     private static final Set<String> SUPPORTED_OPTIONS = Set.of(
         "--input",
@@ -25,8 +24,7 @@ record CodegenOptions(
         "--package",
         "--class-name",
         "--dialect",
-        "--graph-output",
-        "--print-info"
+        "--impact-output"
     );
 
     CodegenOptions {
@@ -47,8 +45,7 @@ record CodegenOptions(
             values.getOrDefault("--package", "io.github.absketches.runway.generated"),
             values.getOrDefault("--class-name", "GeneratedRunwayMigrations"),
             CodegenDialect.parse(required(values, "--dialect")),
-            optionalPath(values.get("--graph-output")),
-            Boolean.parseBoolean(values.getOrDefault("--print-info", "false"))
+            optionalPath(values.get("--impact-output"))
         );
     }
 

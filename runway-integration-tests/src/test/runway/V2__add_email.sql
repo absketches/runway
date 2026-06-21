@@ -1,2 +1,2 @@
 alter table users
-add column email text;
+add column email varchar(255);

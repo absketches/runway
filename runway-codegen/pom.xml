@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.github.absketches</groupId>
         <artifactId>runway-parent</artifactId>
-        <version>2026.06.20.164944</version>
+        <version>0.1.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>runway-codegen</artifactId>
@@ -32,6 +32,30 @@
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <configuration>
+                    <flattenMode>ossrh</flattenMode>
+                    <updatePomFile>true</updatePomFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten-published-pom</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>clean-flattened-pom</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
