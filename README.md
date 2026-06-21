@@ -2,6 +2,9 @@
 
 Runway is a native-first, reflection-free database migration engine for Java applications.
 It serves as an alternative to Flyway which uses runtime reflection.
+Runway also provides migration impact report to help consolidate and clean-up large migration histories.
+
+![img.png](img.png)
 
 `runway-codegen` compiles migration files into generated Java metadata and one generated UTF-8 resource per SQL statement.
 Runtime migration execution does not scan for files or parse SQL.
@@ -282,7 +285,3 @@ Published artifacts:
 The parent POM is a private build parent for this repository and is not published. `runway-core` and `runway-codegen`
 carry explicit module versions and are released independently. Their published POMs are flattened so consumers only need
 the artifact they use, not `runway-parent`.
-
-When one artifact is released, the workflow updates only that artifact's POM and the matching version property in the
-root POM. The release commit uses `[skip ci]`, so the repository references move forward without starting another
-build-test cycle.
