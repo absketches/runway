@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>runway-codegen</artifactId>
-    <version>2026.06.20.164944</version>
+    <version>2026.06.21.070245</version>
     <name>Runway Codegen</name>
 
     <dependencies>
