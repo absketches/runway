@@ -95,7 +95,7 @@ public final class Runway {
                     statement.execute(sql);
                 }
             }
-            history.recordSuccess(connection, migration, elapsedMs(started), ENGINE_VERSION);
+            history.recordSuccess(connection, migration, elapsedMs(started), ENGINE_VERSION, migrations.codegenVersion());
             connection.commit();
         } catch (SQLException | RuntimeException e) {
             try {
@@ -104,7 +104,7 @@ public final class Runway {
                 e.addSuppressed(rollbackFailure);
             }
             try {
-                history.recordFailure(connection, migration, elapsedMs(started), ENGINE_VERSION);
+                history.recordFailure(connection, migration, elapsedMs(started), ENGINE_VERSION, migrations.codegenVersion());
                 connection.commit();
             } catch (SQLException historyFailure) {
                 e.addSuppressed(historyFailure);

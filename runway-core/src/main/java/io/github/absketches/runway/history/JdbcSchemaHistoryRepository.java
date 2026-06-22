@@ -44,7 +44,8 @@ public final class JdbcSchemaHistoryRepository implements SchemaHistoryRepositor
                     parseInstalledOn(resultSet.getString("installed_on")),
                     resultSet.getLong("execution_time_ms"),
                     resultSet.getBoolean("success"),
-                    resultSet.getString("engine_version")
+                    resultSet.getString("engine_version"),
+                    resultSet.getString("codegen_version")
                 ));
             }
             return List.copyOf(migrations);
@@ -56,9 +57,10 @@ public final class JdbcSchemaHistoryRepository implements SchemaHistoryRepositor
         Connection connection,
         MigrationDefinition migration,
         long executionTimeMs,
-        String engineVersion
+        String engineVersion,
+        String codegenVersion
     ) throws SQLException {
-        record(connection, migration, executionTimeMs, engineVersion, true);
+        record(connection, migration, executionTimeMs, engineVersion, codegenVersion, true);
     }
 
     @Override
@@ -66,9 +68,10 @@ public final class JdbcSchemaHistoryRepository implements SchemaHistoryRepositor
         Connection connection,
         MigrationDefinition migration,
         long executionTimeMs,
-        String engineVersion
+        String engineVersion,
+        String codegenVersion
     ) throws SQLException {
-        record(connection, migration, executionTimeMs, engineVersion, false);
+        record(connection, migration, executionTimeMs, engineVersion, codegenVersion, false);
     }
 
     private void record(
@@ -76,6 +79,7 @@ public final class JdbcSchemaHistoryRepository implements SchemaHistoryRepositor
         MigrationDefinition migration,
         long executionTimeMs,
         String engineVersion,
+        String codegenVersion,
         boolean success
     ) throws SQLException {
         try (PreparedStatement rankStatement = connection.prepareStatement(statements.nextInstalledRank());
@@ -86,13 +90,13 @@ public final class JdbcSchemaHistoryRepository implements SchemaHistoryRepositor
                 statement.setInt(1, rank);
                 statement.setString(2, migration.version().value());
                 statement.setString(3, migration.description());
-                statement.setString(4, "VERSIONED");
-                statement.setString(5, migration.script());
-                statement.setString(6, migration.checksum());
-                statement.setString(7, Instant.now().toString());
-                statement.setLong(8, executionTimeMs);
-                statement.setBoolean(9, success);
-                statement.setString(10, engineVersion);
+                statement.setString(4, migration.script());
+                statement.setString(5, migration.checksum());
+                statement.setString(6, Instant.now().toString());
+                statement.setLong(7, executionTimeMs);
+                statement.setBoolean(8, success);
+                statement.setString(9, engineVersion);
+                statement.setString(10, codegenVersion);
                 statement.executeUpdate();
             }
         }

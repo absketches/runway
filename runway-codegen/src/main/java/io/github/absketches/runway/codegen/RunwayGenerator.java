@@ -11,8 +11,8 @@ import io.github.absketches.runway.codegen.migration.VersionKey;
 import io.github.absketches.runway.codegen.output.JavaSourceWriter;
 import io.github.absketches.runway.codegen.output.MigrationImpactReportWriter;
 import io.github.absketches.runway.codegen.sql.SqlNormalizer;
-import io.github.absketches.runway.codegen.sql.SqlStatementSplitter;
-import io.github.absketches.runway.codegen.sql.SqlFeatureValidator;
+import io.github.absketches.runway.codegen.sql.split.SqlStatementSplitter;
+import io.github.absketches.runway.codegen.sql.validation.RunwaySqlFeatureValidator;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -59,6 +59,7 @@ final class RunwayGenerator {
                     options.packageName(),
                     options.className(),
                     options.dialect().runtimeName(),
+                    RunwayCodegenVersion.VALUE,
                     migrations
                 )
             );
@@ -85,7 +86,7 @@ final class RunwayGenerator {
             String migrationDirectory = resourceDirectoryName(path);
             for (int index = 0; index < splitStatements.size(); index++) {
                 var statement = splitStatements.get(index);
-                SqlFeatureValidator.validate(statement.sql(), fileName);
+                RunwaySqlFeatureValidator.validate(statement.sql(), fileName);
                 String statementSql = terminated(statement.sql());
                 String resourcePath = "/" + options.packageName().replace('.', '/')
                     + "/runway/" + migrationDirectory + "/statement-%03d.sql".formatted(index);
@@ -153,9 +154,8 @@ final class RunwayGenerator {
             MigrationImpactReportWriter.write(migrations, analysis),
             StandardCharsets.UTF_8
         );
-        System.out.println(
-            "Runway codegen generated impact analysis: " + options.impactOutput().toAbsolutePath().normalize()
-        );
+        Path report = options.impactOutput().toAbsolutePath().normalize();
+        System.out.println("Runway codegen generated impact analysis: " + report.toUri());
     }
 
     private static void writeNativeImageMetadata(CodegenOptions options) throws IOException {

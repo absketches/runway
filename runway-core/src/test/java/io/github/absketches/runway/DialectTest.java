@@ -44,9 +44,13 @@ class DialectTest {
         String insert = dialect.historyTableStatements().insert().toLowerCase();
 
         assertTrue(create.contains("installed_on"));
+        assertTrue(create.contains("codegen_version"));
+        assertFalse(create.contains("type varchar"));
+        assertFalse(create.contains("type text"));
         assertFalse(create.contains("default now()"));
         assertFalse(create.contains("default current_timestamp"));
         assertTrue(insert.contains("checksum, installed_on,"));
+        assertTrue(insert.contains("engine_version, codegen_version"));
         assertEquals(10, insert.chars().filter(character -> character == '?').count());
     }
 }

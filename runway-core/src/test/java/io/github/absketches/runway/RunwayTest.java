@@ -23,6 +23,7 @@ class RunwayTest {
             .versioned(
                 "1",
                 "missing resource",
+                "V1__missing_resource.sql",
                 "sha256:test",
                 ignored -> null,
                 List.of("/generated/runway/V1__missing_resource/statement-000.sql")

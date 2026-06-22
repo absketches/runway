@@ -9,14 +9,15 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.WeakHashMap;
 
 final class SqliteTableLock implements MigrationLock {
     private static final Duration STALE_LOCK_AFTER = Duration.ofHours(1);
     private static final int SQLITE_CONSTRAINT_PRIMARY_CODE = 19;
-    private final Map<Connection, String> owners = new WeakHashMap<>();
+    private final Map<Connection, String> owners = Collections.synchronizedMap(new IdentityHashMap<>());
     private final Duration acquireTimeout;
     private final Duration retryDelay;
 
@@ -52,9 +53,7 @@ final class SqliteTableLock implements MigrationLock {
                 sleep();
                 continue;
             }
-            synchronized (owners) {
-                owners.put(connection, owner);
-            }
+            owners.put(connection, owner);
             return;
         }
 
@@ -64,10 +63,7 @@ final class SqliteTableLock implements MigrationLock {
 
     @Override
     public void release(Connection connection) throws SQLException {
-        String owner;
-        synchronized (owners) {
-            owner = owners.remove(connection);
-        }
+        String owner = owners.remove(connection);
         if (owner == null) {
             return;
         }

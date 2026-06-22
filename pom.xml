@@ -44,10 +44,12 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <argLine></argLine>
         <runway-core.version>2026.06.21.073447</runway-core.version>
         <runway-codegen.version>2026.06.21.070245</runway-codegen.version>
         <junit.version>5.14.4</junit.version>
         <jacoco.version>0.8.15</jacoco.version>
+        <slf4j.version>1.7.36</slf4j.version>
         <sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>
     </properties>
 
@@ -57,6 +59,12 @@
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter</artifactId>
                 <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-nop</artifactId>
+                <version>${slf4j.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>
@@ -70,6 +78,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.6</version>
                     <configuration>
+                        <argLine>@{argLine} --enable-native-access=ALL-UNNAMED</argLine>
                         <useModulePath>false</useModulePath>
                     </configuration>
                 </plugin>

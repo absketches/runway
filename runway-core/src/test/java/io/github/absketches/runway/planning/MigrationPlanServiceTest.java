@@ -22,8 +22,22 @@ class MigrationPlanServiceTest {
     void plansPendingVersionedMigrations() {
         MigrationPlan plan = MigrationPlanService.plan(
             Migrations.builder()
-                .versioned("1", "create users", "sha256:a", MigrationPlanServiceTest::resource, statements())
-                .versioned("2", "add email", "sha256:b", MigrationPlanServiceTest::resource, statements())
+                .versioned(
+                    "1",
+                    "create users",
+                    script("1", "create users"),
+                    "sha256:a",
+                    MigrationPlanServiceTest::resource,
+                    statements()
+                )
+                .versioned(
+                    "2",
+                    "add email",
+                    script("2", "add email"),
+                    "sha256:b",
+                    MigrationPlanServiceTest::resource,
+                    statements()
+                )
                 .build()
                 .migrations(),
             List.of(applied("1", "create users", "sha256:a"))
@@ -37,7 +51,14 @@ class MigrationPlanServiceTest {
     void detectsChecksumMismatch() {
         MigrationPlan plan = MigrationPlanService.plan(
             Migrations.builder()
-                .versioned("1", "create users", "sha256:new", MigrationPlanServiceTest::resource, statements())
+                .versioned(
+                    "1",
+                    "create users",
+                    script("1", "create users"),
+                    "sha256:new",
+                    MigrationPlanServiceTest::resource,
+                    statements()
+                )
                 .build()
                 .migrations(),
             List.of(applied("1", "create users", "sha256:old"))
@@ -51,7 +72,14 @@ class MigrationPlanServiceTest {
     void versionedIdentityDoesNotDependOnDescription() {
         MigrationPlan plan = MigrationPlanService.plan(
             Migrations.builder()
-                .versioned("1", "renamed description", "sha256:a", MigrationPlanServiceTest::resource, statements())
+                .versioned(
+                    "1",
+                    "renamed description",
+                    "V1__renamed_by_hand.sql",
+                    "sha256:a",
+                    MigrationPlanServiceTest::resource,
+                    statements()
+                )
                 .build()
                 .migrations(),
             List.of(applied("1", "original description", "sha256:a"))
@@ -66,13 +94,18 @@ class MigrationPlanServiceTest {
             1,
             MigrationVersion.of(version),
             description,
-            "V" + version + "__" + description.replace(' ', '_') + ".sql",
+            script(version, description),
             checksum,
             Instant.now(),
             1,
             true,
-            "test"
+            "test",
+            "test-codegen"
         );
+    }
+
+    private static String script(String version, String description) {
+        return "V" + version + "__" + description.replace(' ', '_') + ".sql";
     }
 
     private static List<String> statements() {

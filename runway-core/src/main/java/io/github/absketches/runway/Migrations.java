@@ -10,24 +10,31 @@ public final class Migrations {
     }
 
     public static Builder builder() {
-        return new Builder("");
+        return new Builder("", "unknown");
     }
 
     public static Builder builder(String dialectName) {
-        return new Builder(dialectName);
+        return new Builder(dialectName, "unknown");
+    }
+
+    public static Builder builder(String dialectName, String codegenVersion) {
+        return new Builder(dialectName, codegenVersion);
     }
 
     public static final class Builder {
         private final List<MigrationDefinition> migrations = new ArrayList<>();
         private final String dialectName;
+        private final String codegenVersion;
 
-        private Builder(String dialectName) {
+        private Builder(String dialectName, String codegenVersion) {
             this.dialectName = dialectName == null ? "" : dialectName;
+            this.codegenVersion = codegenVersion == null || codegenVersion.isBlank() ? "unknown" : codegenVersion;
         }
 
         public Builder versioned(
             String version,
             String description,
+            String script,
             String checksum,
             Function<String, InputStream> resourceLoader,
             List<String> statementResources
@@ -35,6 +42,7 @@ public final class Migrations {
             migrations.add(new MigrationDefinition(
                 MigrationVersion.of(version),
                 description,
+                script,
                 checksum,
                 resourceLoader,
                 statementResources
@@ -46,7 +54,7 @@ public final class Migrations {
             List<MigrationDefinition> sorted = migrations.stream()
                 .sorted(MigrationDefinition::compare)
                 .toList();
-            return new MigrationRegistry(sorted, dialectName);
+            return new MigrationRegistry(sorted, dialectName, codegenVersion);
         }
     }
 }

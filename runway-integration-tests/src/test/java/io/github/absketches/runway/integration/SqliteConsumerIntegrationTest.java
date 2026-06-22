@@ -40,6 +40,7 @@ class SqliteConsumerIntegrationTest {
             .versioned(
                 "1",
                 "failing migration",
+                "V1__failing_migration.sql",
                 "sha256:test",
                 resourcePath -> new ByteArrayInputStream((switch (resourcePath) {
                     case "/create.sql" -> "create table should_rollback (id integer primary key);\n";

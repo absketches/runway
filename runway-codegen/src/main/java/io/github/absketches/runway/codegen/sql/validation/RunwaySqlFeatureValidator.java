@@ -1,11 +1,10 @@
-package io.github.absketches.runway.codegen.sql;
+package io.github.absketches.runway.codegen.sql.validation;
 
 import io.github.absketches.runway.codegen.CodegenException;
 
-import java.util.Locale;
 import java.util.Set;
 
-public final class SqlFeatureValidator {
+public final class RunwaySqlFeatureValidator {
     private static final Set<String> CREATE_OBJECTS = Set.of(
         "access",
         "cast",
@@ -61,7 +60,7 @@ public final class SqlFeatureValidator {
         "update"
     );
 
-    private SqlFeatureValidator() {
+    private RunwaySqlFeatureValidator() {
     }
 
     public static void validate(String sql, String scriptName) {
@@ -74,7 +73,7 @@ public final class SqlFeatureValidator {
     }
 
     private static String routineObjectType(String sql) {
-        WordScanner scanner = new WordScanner(sql);
+        SqlWordScanner scanner = new SqlWordScanner(sql);
         String firstWord = scanner.next();
         if ("create".equals(firstWord)) {
             return createdObjectType(scanner);
@@ -85,7 +84,7 @@ public final class SqlFeatureValidator {
         return "";
     }
 
-    private static String createdObjectType(WordScanner scanner) {
+    private static String createdObjectType(SqlWordScanner scanner) {
         for (int count = 0; count < 32; count++) {
             String word = scanner.next();
             if (word.isEmpty()) {
@@ -104,7 +103,7 @@ public final class SqlFeatureValidator {
         return "";
     }
 
-    private static String actionObjectType(WordScanner scanner) {
+    private static String actionObjectType(SqlWordScanner scanner) {
         for (int count = 0; count < 16; count++) {
             String word = scanner.next();
             if (word.isEmpty()) {
@@ -120,7 +119,7 @@ public final class SqlFeatureValidator {
         return "";
     }
 
-    private static String objectAfterDefiner(WordScanner scanner) {
+    private static String objectAfterDefiner(SqlWordScanner scanner) {
         for (int count = 0; count < 16; count++) {
             String word = scanner.next();
             if (word.isEmpty()) {
@@ -131,69 +130,5 @@ public final class SqlFeatureValidator {
             }
         }
         return "";
-    }
-
-    private static final class WordScanner {
-        private final String sql;
-        private int offset;
-
-        private WordScanner(String sql) {
-            this.sql = sql;
-        }
-
-        private String next() {
-            while (offset < sql.length()) {
-                char current = sql.charAt(offset);
-                char next = offset + 1 < sql.length() ? sql.charAt(offset + 1) : '\0';
-                if (Character.isWhitespace(current) || !Character.isJavaIdentifierStart(current)) {
-                    if (current == '-' && next == '-') {
-                        skipLine();
-                    } else if (current == '#') {
-                        skipLine();
-                    } else if (current == '/' && next == '*') {
-                        skipBlockComment();
-                    } else if (current == '\'' || current == '"' || current == '`' || current == '[') {
-                        skipQuoted(current);
-                    } else {
-                        offset++;
-                    }
-                    continue;
-                }
-
-                int start = offset++;
-                while (offset < sql.length() && Character.isJavaIdentifierPart(sql.charAt(offset))) {
-                    offset++;
-                }
-                return sql.substring(start, offset).toLowerCase(Locale.ROOT);
-            }
-            return "";
-        }
-
-        private void skipLine() {
-            int newline = sql.indexOf('\n', offset);
-            offset = newline < 0 ? sql.length() : newline + 1;
-        }
-
-        private void skipBlockComment() {
-            int end = sql.indexOf("*/", offset + 2);
-            offset = end < 0 ? sql.length() : end + 2;
-        }
-
-        private void skipQuoted(char opening) {
-            char closing = opening == '[' ? ']' : opening;
-            offset++;
-            while (offset < sql.length()) {
-                char current = sql.charAt(offset++);
-                if (current == closing) {
-                    if (offset < sql.length() && sql.charAt(offset) == closing) {
-                        offset++;
-                    } else {
-                        return;
-                    }
-                } else if (current == '\\' && offset < sql.length()) {
-                    offset++;
-                }
-            }
-        }
     }
 }

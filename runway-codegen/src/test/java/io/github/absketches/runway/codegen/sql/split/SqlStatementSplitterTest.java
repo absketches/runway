@@ -1,10 +1,13 @@
-package io.github.absketches.runway.codegen.sql;
+package io.github.absketches.runway.codegen.sql.split;
 
 import io.github.absketches.runway.codegen.CodegenException;
+import io.github.absketches.runway.codegen.sql.CodegenDialect;
 
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SqlStatementSplitterTest {
     @Test
@@ -91,5 +94,20 @@ class SqlStatementSplitterTest {
 
         assertEquals(2, statements.size());
         assertEquals(true, statements.getFirst().sql().contains("update counters"));
+    }
+
+    @Test
+    void rejectsDelimiterDirectiveWhenDialectDoesNotSupportIt() {
+        String sql = """
+            delimiter //
+            select 1//
+            """;
+
+        CodegenException exception = assertThrows(
+            CodegenException.class,
+            () -> SqlStatementSplitter.split(sql, "V1__sqlite.sql", CodegenDialect.SQLITE)
+        );
+
+        assertTrue(exception.getMessage().contains("not supported by the configured SQL dialect"));
     }
 }

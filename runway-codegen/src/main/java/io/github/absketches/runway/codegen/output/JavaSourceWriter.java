@@ -21,6 +21,7 @@ public final class JavaSourceWriter {
         String packageName,
         String className,
         String dialectName,
+        String codegenVersion,
         List<ParsedMigration> migrations
     ) {
         StringBuilder registrations = new StringBuilder();
@@ -42,11 +43,19 @@ public final class JavaSourceWriter {
                 }
 
                 public static MigrationRegistry registry() {
-                    Migrations.Builder builder = Migrations.builder(%s);
+                    Migrations.Builder builder = Migrations.builder(%s, %s);
             %s        return builder.build();
                 }
             }
-            """.formatted(GENERATED_MARKER, packageName, className, className, quote(dialectName), registrations);
+            """.formatted(
+            GENERATED_MARKER,
+            packageName,
+            className,
+            className,
+            quote(dialectName),
+            quote(codegenVersion),
+            registrations
+        );
     }
 
     public static String writeMigration(String packageName, ParsedMigration migration) {
@@ -98,6 +107,7 @@ public final class JavaSourceWriter {
             "versioned",
             quote(migration.version()),
             quote(migration.description()),
+            quote(migration.path().getFileName().toString()),
             quote(migration.checksum()),
             className + "::openResource",
             statements(migration)

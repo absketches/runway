@@ -11,7 +11,19 @@ public interface SchemaHistoryRepository {
 
     List<AppliedMigration> findAll(Connection connection) throws SQLException;
 
-    void recordSuccess(Connection connection, MigrationDefinition migration, long executionTimeMs, String engineVersion) throws SQLException;
+    void recordSuccess(
+        Connection connection,
+        MigrationDefinition migration,
+        long executionTimeMs,
+        String engineVersion,
+        String codegenVersion
+    ) throws SQLException;
 
-    void recordFailure(Connection connection, MigrationDefinition migration, long executionTimeMs, String engineVersion) throws SQLException;
+    void recordFailure(
+        Connection connection,
+        MigrationDefinition migration,
+        long executionTimeMs,
+        String engineVersion,
+        String codegenVersion
+    ) throws SQLException;
 }

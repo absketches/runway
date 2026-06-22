@@ -1,12 +1,13 @@
-package io.github.absketches.runway.codegen.sql;
+package io.github.absketches.runway.codegen.sql.validation;
 
 import io.github.absketches.runway.codegen.CodegenException;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class SqlFeatureValidatorTest {
+class RunwaySqlFeatureValidatorTest {
     @Test
     void rejectsRoutineDefinitionsWithModifiers() {
         assertRejects("create definer = current_user procedure refresh_users() select 1");
@@ -19,15 +20,15 @@ class SqlFeatureValidatorTest {
 
     @Test
     void acceptsTriggersAndRoutineWordsOutsideCreateObjectType() {
-        assertDoesNotThrow(() -> SqlFeatureValidator.validate(
+        assertDoesNotThrow(() -> RunwaySqlFeatureValidator.validate(
             "create trigger users_audit after update on users begin select 1; end",
             "V1__trigger.sql"
         ));
-        assertDoesNotThrow(() -> SqlFeatureValidator.validate(
+        assertDoesNotThrow(() -> RunwaySqlFeatureValidator.validate(
             "insert into messages (body) values ('create function is documentation')",
             "V1__message.sql"
         ));
-        assertDoesNotThrow(() -> SqlFeatureValidator.validate(
+        assertDoesNotThrow(() -> RunwaySqlFeatureValidator.validate(
             "create table functions (function_name text)",
             "V1__table.sql"
         ));
@@ -36,7 +37,7 @@ class SqlFeatureValidatorTest {
     private static void assertRejects(String sql) {
         assertThrows(
             CodegenException.class,
-            () -> SqlFeatureValidator.validate(sql, "V1__routine.sql")
+            () -> RunwaySqlFeatureValidator.validate(sql, "V1__routine.sql")
         );
     }
 }

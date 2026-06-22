@@ -13,6 +13,7 @@ public record AppliedMigration(
     Instant installedOn,
     long executionTimeMs,
     boolean success,
-    String engineVersion
+    String engineVersion,
+    String codegenVersion
 ) {
 }
