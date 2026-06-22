@@ -19,6 +19,10 @@ permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: runway-release
+  cancel-in-progress: false
+
 jobs:
   prepare:
     name: Prepare Release
@@ -197,14 +201,31 @@ jobs:
       (needs.publish-github.result == 'success' || needs.publish-github.result == 'skipped') &&
       (needs.publish-sonatype.result == 'success' || needs.publish-sonatype.result == 'skipped')
     steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build release assets
+        run: mvn -B -pl runway-core -Psonatype-release package -DskipTests -Dgpg.skip=true
+
       - name: Create release tag
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          tag="runway-core-v${{ needs.prepare.outputs.version }}"
-          notes="Released artifacts:"$'\n'"- io.github.absketches:runway-core:${{ needs.prepare.outputs.version }}"
-          notes="${notes}"$'\n\n'"Publish targets:"
+          version="${{ needs.prepare.outputs.version }}"
+          tag="runway-core-v${version}"
+          notes="## Released Artifacts"$'\n'
+          notes="${notes}"$'\n'"- io.github.absketches:runway-core:${version}"
+          notes="${notes}"$'\n\n'"## Publish Targets"
           if [[ "${{ inputs.publish_github_packages }}" == "true" ]]; then
             notes="${notes}"$'\n'"- GitHub Packages"
           fi
@@ -213,7 +234,11 @@ jobs:
           fi
 
           gh release create "$tag" \
+            "runway-core/target/runway-core-${version}.jar" \
+            "runway-core/target/runway-core-${version}-sources.jar" \
+            "runway-core/target/runway-core-${version}-javadoc.jar" \
             --repo "${{ github.repository }}" \
             --target "${{ needs.prepare.outputs.release_sha }}" \
             --title "$tag" \
-            --notes "$notes"
+            --notes "$notes" \
+            --generate-notes

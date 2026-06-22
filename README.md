@@ -211,6 +211,11 @@ java -cp runway-codegen/target/runway-codegen-<version>.jar \
   --impact-output build/reports/runway/impact.html
 ```
 
+Use --help to print the supported command-line options.
+```bash
+java -cp runway-codegen/target/runway-codegen-<version>.jar \
+io.github.absketches.runway.codegen.RunwayCodegen --help
+```
 
 ### Runtime
 
