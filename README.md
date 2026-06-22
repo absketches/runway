@@ -4,7 +4,7 @@ Runway is a native-first, reflection-free database migration engine for Java app
 It serves as an alternative to Flyway which uses runtime reflection.
 Runway also provides migration impact report to help consolidate and clean-up large migration histories.
 
-![img.png](img.png)
+![img.png](impact-analysis-snap.png)
 
 `runway-codegen` compiles migration files into generated Java metadata and one generated UTF-8 resource per SQL statement.
 Runtime migration execution does not scan for files or parse SQL.
@@ -255,17 +255,31 @@ other schema objects. A file is marked as a `merge candidate` only when every sc
 again by a later SQL file. This is a consolidation signal, not an instruction to delete historical migrations. DML and
 incomplete non-DML analysis are reported separately; incomplete analysis takes precedence when a file contains both. The
 consolidation table lists the later file and schema point that supersede each older schema write.
-*Procedure and function definitions are not supported at the moment*
+
+**Procedure and function definitions will be applied on the database but their analysis is currently not supported and will be marked as incomplete**
 
 Codegen handles MySQL/MariaDB `DELIMITER` directives while splitting and removes them from generated JDBC statements.
 Statements outside impact-analysis coverage remain executable and are reported as unknown or incomplete when analysis is enabled.
 Codegen also emits catalog-specific GraalVM reachability metadata under a Runway-owned native-image path, so generated SQL
 resources are included in native images without replacing other native-image metadata.
 
-Supported file name convention:
+#### Rules for SQL file names
+
+- Must start with uppercase V
+- Version must be numeric parts only
+- Version parts may be separated by ., _, or -
+- Must use exactly double underscore __ between version and description
+- Description must start with a letter or digit
+- Description may contain letters, digits, underscores, spaces, and hyphens
+
+Supported example file name conventions:
 
 - `V1__create_users.sql`
 - `V111__create_users.sql`
+- `V2026.06.16__create_users.sql`
+- `V1_2__add_email.sql`
+- `V1-2__add-email.sql`
+- `V001__create_users.sql`
 
 ## Build
 

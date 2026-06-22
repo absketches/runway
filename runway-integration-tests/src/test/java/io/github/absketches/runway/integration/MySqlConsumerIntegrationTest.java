@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
@@ -48,11 +49,21 @@ class MySqlConsumerIntegrationTest {
                     where table_schema = database()
                       and table_name = 'audit_log'
                       and index_name = 'audit_log_event_name_idx'
-                    """
+                    """,
+                expectedVersions(),
+                "select user_display_name('Ada')",
+                "call runway_touch_audit_metadata()"
             );
         } finally {
             database.stop();
         }
+    }
+
+    private static List<String> expectedVersions() {
+        return List.of(
+            "1", "2", "3", "4", "26", "79", "90", "91", "92", "101", "102", "103", "104", "105", "106", "107",
+            "108", "109", "110", "111"
+        );
     }
 
     private static DB embeddedDatabase(DBConfigurationBuilder config) throws ManagedProcessException {

@@ -36,10 +36,30 @@ final class ConsumerIntegrationSupport {
         MigrationRegistry registry,
         String indexExistsSql
     ) throws Exception {
+        assertGeneratedMigrationsApply(
+            dataSource,
+            dialect,
+            registry,
+            indexExistsSql,
+            expectedVersions(),
+            null,
+            null
+        );
+    }
+
+    static void assertGeneratedMigrationsApply(
+        DataSource dataSource,
+        DatabaseDialect dialect,
+        MigrationRegistry registry,
+        String indexExistsSql,
+        List<String> expectedVersions,
+        String functionCheckSql,
+        String procedureCallSql
+    ) throws Exception {
         MigrationResult first = Runway.migrate(dataSource, dialect, registry);
 
         assertTrue(first.success(), () -> first.validationErrors().toString());
-        assertEquals(17, first.executed().size());
+        assertEquals(expectedVersions.size(), first.executed().size());
 
         try (Connection connection = dataSource.getConnection()) {
             connection.createStatement()
@@ -55,6 +75,10 @@ final class ConsumerIntegrationSupport {
                 "runway",
                 singleString(connection, "select metadata_value from audit_metadata where metadata_key = 'created_by'")
             );
+            assertEquals(
+                "Ada",
+                singleString(connection, "select metadata_value from audit_metadata where metadata_key = 'trigger_user_name'")
+            );
             assertEquals(1, singleInt(connection, "select count(*) from user_names where name = 'Ada'"));
             assertEquals(1, singleInt(connection, "select count(*) from user_ids where name = 'Ada'"));
             assertEquals(1, singleInt(connection, "select count(*) from user_name_filter where id = 1"));
@@ -62,10 +86,20 @@ final class ConsumerIntegrationSupport {
             assertEquals(1, singleInt(connection, "select count(*) from audit_events where event_name = 'created'"));
             assertEquals(1, singleInt(connection, "select severity_count from audit_severities where severity = 'WARN'"));
             assertEquals(1, singleInt(connection, "select event_count from audit_summary where severity = 'WARN'"));
-            assertEquals(17, singleInt(connection, "select count(*) from runway_schema_history"));
+            if (functionCheckSql != null) {
+                assertEquals("user:Ada", singleString(connection, functionCheckSql));
+            }
+            if (procedureCallSql != null) {
+                connection.createStatement().execute(procedureCallSql);
+                assertEquals(
+                    "yes",
+                    singleString(connection, "select metadata_value from audit_metadata where metadata_key = 'procedure_created'")
+                );
+            }
+            assertEquals(expectedVersions.size(), singleInt(connection, "select count(*) from runway_schema_history"));
             assertEquals(0, singleInt(connection, "select count(*) from runway_schema_history where not success"));
             assertEquals(
-                expectedVersions(),
+                expectedVersions,
                 strings(connection, "select version from runway_schema_history order by installed_rank")
             );
         }
@@ -106,7 +140,7 @@ final class ConsumerIntegrationSupport {
     private static List<String> expectedVersions() {
         return List.of(
             "1", "2", "3", "4", "26", "79", "90", "91", "92", "101", "102", "103", "104", "105", "106", "107",
-            "108"
+            "108", "111"
         );
     }
 

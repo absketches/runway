@@ -243,7 +243,7 @@ public final class MigrationImpactReportWriter {
                 </div>
                 %s
                 <h2>Consolidation Candidates</h2>
-                <p>A SQL file is a merge candidate only when every schema data point it touches is represented again by a later SQL file. This is a consolidation signal, not an instruction to delete historical migrations. DML is reported as data changes. Unsupported or incomplete non-DML analysis takes precedence.</p>
+                <p>A SQL file is a merge candidate only when every schema data point it touches is represented again by a later SQL file. This is a consolidation signal, not an instruction to delete historical migrations. DML is reported as data changes. Incomplete non-DML analysis reports runtime points as unknown.</p>
                 %s
               </main>
               <script>
@@ -595,7 +595,7 @@ public final class MigrationImpactReportWriter {
                 markers.put("R", "Read dependency");
             }
             if ((schemaWrite || dataWrite || read)
-                && !isDml(statement.impact().type())
+                && !statement.impact().type().isDml()
                 && !statement.impact().analysisComplete()) {
                 markers.put("?", "Incomplete analysis");
             }
@@ -624,7 +624,7 @@ public final class MigrationImpactReportWriter {
             <div class="summary">
             <table id="consolidation-candidates">
             <thead>
-            <tr><th>SQL file</th><th class="number">Schema data points</th><th class="number">Current</th><th class="number">Superseded</th><th>Merge with</th><th>Status</th></tr>
+            <tr><th>SQL file</th><th class="number">Schema data points</th><th class="number">Runtime write points</th><th class="number">Runtime read points</th><th class="number">Current</th><th class="number">Superseded</th><th>Merge with</th><th>Status</th></tr>
             </thead>
             <tbody>
             """);
@@ -643,6 +643,10 @@ public final class MigrationImpactReportWriter {
                 .append(html(file.fileName()))
                 .append("</code></td><td class=\"number\">")
                 .append(writes.size())
+                .append("</td><td class=\"number\">")
+                .append(runtimePointCount(file.runtimeWritePoints(), file))
+                .append("</td><td class=\"number\">")
+                .append(runtimePointCount(file.runtimeReadPoints(), file))
                 .append("</td><td class=\"number\">")
                 .append(latest)
                 .append("</td><td class=\"number\">")
@@ -688,6 +692,10 @@ public final class MigrationImpactReportWriter {
             writes.addAll(schemaWritePoints(statement.impact()));
         }
         return writes;
+    }
+
+    private static String runtimePointCount(Set<ImpactKey> points, FileImpact file) {
+        return file.hasIncompleteNonDmlAnalysis() ? "unknown" : Integer.toString(points.size());
     }
 
     private static String mergeTargets(
@@ -737,17 +745,11 @@ public final class MigrationImpactReportWriter {
     }
 
     private static List<ImpactKey> schemaWritePoints(SqlImpact impact) {
-        return isDml(impact.type()) ? List.of() : writePoints(impact);
+        return impact.type().isDml() ? List.of() : writePoints(impact);
     }
 
     private static List<ImpactKey> dataWritePoints(SqlImpact impact) {
-        return isDml(impact.type()) ? writePoints(impact) : List.of();
-    }
-
-    private static boolean isDml(SqlStatementType type) {
-        return type == SqlStatementType.INSERT
-            || type == SqlStatementType.UPDATE
-            || type == SqlStatementType.DELETE;
+        return impact.type().isDml() ? writePoints(impact) : List.of();
     }
 
     private static List<ObjectSubgroup> objectSubgroups(List<ImpactKey> points) {
@@ -765,6 +767,9 @@ public final class MigrationImpactReportWriter {
     private static String objectType(SqlImpact impact) {
         return switch (impact.type()) {
             case CREATE_INDEX, DROP_INDEX -> "indexes";
+            case CREATE_TRIGGER, DROP_TRIGGER -> "triggers";
+            case CREATE_FUNCTION, ALTER_FUNCTION, DROP_FUNCTION -> "functions";
+            case CREATE_PROCEDURE, ALTER_PROCEDURE, DROP_PROCEDURE -> "procedures";
             case CREATE_VIEW, DROP_VIEW -> "views";
             default -> "objects";
         };
@@ -853,17 +858,33 @@ public final class MigrationImpactReportWriter {
         String fileName,
         List<StatementImpact> statements
     ) {
-        private boolean analysisComplete() {
-            return statements.stream().allMatch(statement -> statement.impact().analysisComplete());
-        }
-
         private boolean hasDml() {
-            return statements.stream().anyMatch(statement -> isDml(statement.impact().type()));
+            return statements.stream().anyMatch(statement -> statement.impact().type().isDml());
         }
 
         private boolean hasIncompleteNonDmlAnalysis() {
             return statements.stream()
-                .anyMatch(statement -> !isDml(statement.impact().type()) && !statement.impact().analysisComplete());
+                .anyMatch(statement -> !statement.impact().type().isDml() && !statement.impact().analysisComplete());
+        }
+
+        private Set<ImpactKey> runtimeReadPoints() {
+            Set<ImpactKey> points = new LinkedHashSet<>();
+            for (StatementImpact statement : statements) {
+                for (ColumnReference column : statement.impact().runtimeReadColumns()) {
+                    points.add(ImpactKey.column(column));
+                }
+            }
+            return points;
+        }
+
+        private Set<ImpactKey> runtimeWritePoints() {
+            Set<ImpactKey> points = new LinkedHashSet<>();
+            for (StatementImpact statement : statements) {
+                for (ColumnReference column : statement.impact().runtimeWriteColumns()) {
+                    points.add(ImpactKey.column(column));
+                }
+            }
+            return points;
         }
     }
 

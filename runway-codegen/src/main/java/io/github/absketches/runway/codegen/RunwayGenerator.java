@@ -12,7 +12,6 @@ import io.github.absketches.runway.codegen.output.JavaSourceWriter;
 import io.github.absketches.runway.codegen.output.MigrationImpactReportWriter;
 import io.github.absketches.runway.codegen.sql.SqlNormalizer;
 import io.github.absketches.runway.codegen.sql.split.SqlStatementSplitter;
-import io.github.absketches.runway.codegen.sql.validation.RunwaySqlFeatureValidator;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -47,10 +46,8 @@ final class RunwayGenerator {
                     : Map.of();
 
             Path packageDirectory = options.sourceOutput().resolve(options.packageName().replace('.', '/'));
-            Path resourceDirectory = options.resourceOutput()
-                .resolve(options.packageName().replace('.', '/'))
-                .resolve("runway");
-            clearGeneratedJava(packageDirectory);
+            Path resourceDirectory = catalogResourceDirectory(options);
+            clearGeneratedJava(packageDirectory, catalogId(options));
             deleteDirectory(resourceDirectory);
             Files.createDirectories(packageDirectory);
             writeGeneratedSource(
@@ -61,7 +58,8 @@ final class RunwayGenerator {
                     options.dialect().runtimeName(),
                     RunwayCodegenVersion.VALUE,
                     migrations
-                )
+                ),
+                catalogId(options)
             );
             writeMigrationSources(options, packageDirectory, migrations);
             writeResources(options, migrations);
@@ -86,10 +84,9 @@ final class RunwayGenerator {
             String migrationDirectory = resourceDirectoryName(path);
             for (int index = 0; index < splitStatements.size(); index++) {
                 var statement = splitStatements.get(index);
-                RunwaySqlFeatureValidator.validate(statement.sql(), fileName);
                 String statementSql = terminated(statement.sql());
-                String resourcePath = "/" + options.packageName().replace('.', '/')
-                    + "/runway/" + migrationDirectory + "/statement-%03d.sql".formatted(index);
+                String resourcePath = "/" + catalogResourcePath(options)
+                    + "/" + migrationDirectory + "/statement-%03d.sql".formatted(index);
                 statements.add(new ParsedStatement(
                     statementSql,
                     resourcePath
@@ -125,13 +122,14 @@ final class RunwayGenerator {
             Path source = packageDirectory.resolve(JavaSourceWriter.migrationClassName(migration) + ".java");
             writeGeneratedSource(
                 source,
-                JavaSourceWriter.writeMigration(options.packageName(), migration)
+                JavaSourceWriter.writeMigration(options.packageName(), options.className(), migration),
+                catalogId(options)
             );
         }
     }
 
-    private static void writeGeneratedSource(Path path, String source) throws IOException {
-        if (Files.exists(path) && !isGeneratedJava(path)) {
+    private static void writeGeneratedSource(Path path, String source, String catalogId) throws IOException {
+        if (Files.exists(path) && !isGeneratedJava(path, catalogId)) {
             throw new CodegenException("Refusing to overwrite non-Runway Java source: " + path);
         }
         Files.writeString(path, source, StandardCharsets.UTF_8);
@@ -173,14 +171,14 @@ final class RunwayGenerator {
                   "condition": {
                     "typeReached": "%s.%s"
                   },
-                  "glob": "%s/runway/**"
+                  "glob": "%s/**"
                 }
               ]
             }
             """.formatted(
             options.packageName(),
             options.className(),
-            options.packageName().replace('.', '/')
+            catalogResourcePath(options)
         ), StandardCharsets.UTF_8);
     }
 
@@ -231,23 +229,39 @@ final class RunwayGenerator {
         }
     }
 
-    private static void clearGeneratedJava(Path directory) throws IOException {
+    private static void clearGeneratedJava(Path directory, String catalogId) throws IOException {
         if (!Files.isDirectory(directory)) {
             return;
         }
         try (var files = Files.list(directory)) {
-            for (Path file : files.filter(RunwayGenerator::isGeneratedJava).toList()) {
+            for (Path file : files.filter(path -> isCatalogGeneratedJava(path, catalogId)).toList()) {
                 Files.delete(file);
             }
         }
     }
 
-    private static boolean isGeneratedJava(Path path) {
+    private static boolean isGeneratedJava(Path path, String catalogId) {
         if (!path.getFileName().toString().endsWith(".java")) {
             return false;
         }
         try (var reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            return JavaSourceWriter.generatedMarker().equals(reader.readLine());
+            if (!JavaSourceWriter.generatedMarker().equals(reader.readLine())) {
+                return false;
+            }
+            String owner = reader.readLine();
+            return owner == null || owner.equals(catalogMarker(catalogId));
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static boolean isCatalogGeneratedJava(Path path, String catalogId) {
+        if (!path.getFileName().toString().endsWith(".java")) {
+            return false;
+        }
+        try (var reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            return JavaSourceWriter.generatedMarker().equals(reader.readLine())
+                && catalogMarker(catalogId).equals(reader.readLine());
         } catch (IOException e) {
             return false;
         }
@@ -262,6 +276,22 @@ final class RunwayGenerator {
                 Files.delete(path);
             }
         }
+    }
+
+    private static Path catalogResourceDirectory(CodegenOptions options) {
+        return options.resourceOutput().resolve(catalogResourcePath(options));
+    }
+
+    private static String catalogResourcePath(CodegenOptions options) {
+        return options.packageName().replace('.', '/') + "/runway/" + options.className();
+    }
+
+    private static String catalogId(CodegenOptions options) {
+        return options.packageName() + "." + options.className();
+    }
+
+    private static String catalogMarker(String catalogId) {
+        return "// Runway catalog: " + catalogId;
     }
 
 }

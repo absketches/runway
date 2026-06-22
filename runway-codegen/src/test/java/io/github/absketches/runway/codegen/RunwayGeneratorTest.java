@@ -7,7 +7,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,13 +50,13 @@ class RunwayGeneratorTest {
         assertTrue(!migration.contains("create table users"));
 
         Path statement = options.resourceOutput().resolve(
-            "io/github/absketches/runway/generated/runway/V1__create_users/statement-000.sql"
+            "io/github/absketches/runway/generated/runway/GeneratedRunwayMigrations/V1__create_users/statement-000.sql"
         );
         assertEquals("create table users (name text default '\"\"\"');\n", Files.readString(statement));
 
         String nativeMetadata = Files.readString(nativeMetadata(options));
         assertTrue(nativeMetadata.contains("\"typeReached\": \"" + PACKAGE_NAME + "." + CLASS_NAME + "\""));
-        assertTrue(nativeMetadata.contains("\"glob\": \"io/github/absketches/runway/generated/runway/**\""));
+        assertTrue(nativeMetadata.contains("\"glob\": \"io/github/absketches/runway/generated/runway/GeneratedRunwayMigrations/**\""));
 
         assertTrue(migration.contains("import io.github.absketches.runway.Migrations;"));
     }
@@ -76,22 +75,42 @@ class RunwayGeneratorTest {
     }
 
     @Test
-    void rejectsProceduresAndFunctions() throws Exception {
+    void allowsProceduresAndFunctionsAndMarksImpactIncomplete() throws Exception {
         Path input = tempDir.resolve("runway");
         Files.createDirectories(input);
+        Files.writeString(input.resolve("V1__create_display_name_function.sql"), """
+            create function user_display_name(user_name varchar(255))
+            returns varchar(255)
+            deterministic
+            return concat('user:', user_name);
+            """);
+        Files.writeString(input.resolve("V2__create_audit_procedure.sql"), """
+            delimiter //
+            create procedure runway_touch_audit_metadata()
+            begin
+              select 1;
+            end//
+            delimiter ;
+            """);
+        Path impactReport = tempDir.resolve("impact.html");
 
-        for (String sql : List.of(
-            "create procedure demo() begin select 1; end;",
-            "create function demo() returns integer return 1;",
-            "create or replace function demo() returns integer return 1;",
-            "create definer = 'app'@'localhost' procedure demo() select 1"
-        )) {
-            Files.writeString(input.resolve("V1__unsupported.sql"), sql);
-            CodegenException exception = assertThrows(CodegenException.class, () -> new RunwayGenerator().generate(
-                options(input, null)
-            ));
-            assertTrue(exception.getMessage().contains("does not currently support"));
-        }
+        CodegenOptions options = options(input, impactReport, CodegenDialect.MYSQL);
+        new RunwayGenerator().generate(options);
+
+        assertTrue(Files.exists(options.resourceOutput().resolve(
+            "io/github/absketches/runway/generated/runway/GeneratedRunwayMigrations/V1__create_display_name_function/statement-000.sql"
+        )));
+        assertTrue(Files.exists(options.resourceOutput().resolve(
+            "io/github/absketches/runway/generated/runway/GeneratedRunwayMigrations/V2__create_audit_procedure/statement-000.sql"
+        )));
+
+        String report = Files.readString(impactReport);
+        assertTrue(report.contains(">functions</th>"));
+        assertTrue(report.contains(">procedures</th>"));
+        assertTrue(report.contains(">user_display_name</th>"));
+        assertTrue(report.contains(">runway_touch_audit_metadata</th>"));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V1__create_display_name_function.sql\" data-status=\"incomplete analysis\""));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V2__create_audit_procedure.sql\" data-status=\"incomplete analysis\""));
     }
 
     @Test
@@ -108,7 +127,7 @@ class RunwayGeneratorTest {
         new RunwayGenerator().generate(options);
 
         Path resourceDirectory = options.resourceOutput().resolve(
-            "io/github/absketches/runway/generated/runway/V1__operations"
+            "io/github/absketches/runway/generated/runway/GeneratedRunwayMigrations/V1__operations"
         );
         assertTrue(Files.exists(resourceDirectory.resolve("statement-000.sql")));
         assertTrue(Files.exists(resourceDirectory.resolve("statement-001.sql")));
@@ -127,7 +146,7 @@ class RunwayGeneratorTest {
         new RunwayGenerator().generate(options);
 
         Path statement = options.resourceOutput().resolve(
-            "io/github/absketches/runway/generated/runway/V1__message/statement-000.sql"
+            "io/github/absketches/runway/generated/runway/GeneratedRunwayMigrations/V1__message/statement-000.sql"
         );
         assertEquals(sql, Files.readString(statement, StandardCharsets.UTF_8));
         String report = Files.readString(impactReport);
@@ -141,7 +160,7 @@ class RunwayGeneratorTest {
         assertTrue(report.contains(">content</th>"));
         assertTrue(report.contains("<tr data-file-row data-file=\"V1__message.sql\" data-status=\"data changes\""));
         assertTrue(report.contains("<span class=\"marker data\">D</span>"));
-        assertTrue(report.contains("<td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
+        assertTrue(report.contains("<td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
     }
 
     @Test
@@ -196,6 +215,14 @@ class RunwayGeneratorTest {
 
             grant select on users to reporting;
             """);
+        Files.writeString(input.resolve("V9__audit_user_status_changes.sql"), """
+            create trigger users_status_audit
+            after update of status on users
+            begin
+              insert into audit_log (event_name, severity)
+              values (new.status, 'INFO');
+            end;
+            """);
         Path impactReport = tempDir.resolve("impact.html");
 
         new RunwayGenerator().generate(options(input, impactReport));
@@ -206,9 +233,12 @@ class RunwayGeneratorTest {
         assertTrue(report.contains("roles (table)"));
         assertTrue(report.contains("database objects"));
         assertTrue(report.contains(">indexes</th>"));
+        assertTrue(report.contains(">triggers</th>"));
         assertTrue(report.indexOf(">database objects</th>") > report.indexOf(">roles (table)</th>"));
         assertTrue(report.contains(">users_status_idx</th>"));
+        assertTrue(report.contains(">users_status_audit</th>"));
         assertTrue(!report.contains("<th>(table)</th>"));
+        assertTrue(report.contains("<tr data-file-row data-file=\"V9__audit_user_status_changes.sql\" data-status=\"active\""));
         assertTrue(report.contains("<tr data-file-row data-file=\"V3__index_users_status.sql\" data-status=\"active\""));
         assertTrue(report.contains("<tr data-file-row data-file=\"V2__rewrite_status.sql\" data-status=\"data changes\""));
         assertTrue(report.contains("<tr data-file-row data-file=\"V1__update_users.sql\" data-status=\"data changes\""));
@@ -217,12 +247,15 @@ class RunwayGeneratorTest {
         assertTrue(report.contains("<tr data-file-row data-file=\"V4__create_user_names_legacy.sql\" data-status=\"merge candidate\""));
         assertTrue(report.contains("title=\"Superseded by V6__replace_user_names.sql\">w</span>"));
         assertTrue(report.contains("<h2>Consolidation Candidates</h2>"));
-        assertTrue(report.contains("<td><code>V3__index_users_status.sql</code></td><td class=\"number\">1</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"active\">active</td>"));
-        assertTrue(report.contains("<td><code>V2__rewrite_status.sql</code></td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
-        assertTrue(report.contains("<td><code>V1__update_users.sql</code></td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
-        assertTrue(report.contains("<td><code>V8__data_change_with_unknown.sql</code></td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"incomplete\">incomplete analysis</td>"));
-        assertTrue(report.contains("<td><code>V5__create_reporting_views.sql</code></td><td class=\"number\">2</td><td class=\"number\">1</td><td class=\"number\">1</td><td class=\"merge-target\"><div><code>V7__replace_user_ids.sql</code><span class=\"points\">views.user_ids</span></div></td><td class=\"partial\">partial merge candidate</td>"));
-        assertTrue(report.contains("<td><code>V4__create_user_names_legacy.sql</code></td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"merge-target\"><div><code>V6__replace_user_names.sql</code><span class=\"points\">views.user_names</span></div></td><td class=\"merge\">merge candidate</td>"));
+        assertTrue(report.contains("Runtime write points"));
+        assertTrue(report.contains("Runtime read points"));
+        assertTrue(report.contains("<td><code>V9__audit_user_status_changes.sql</code></td><td class=\"number\">1</td><td class=\"number\">2</td><td class=\"number\">1</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"active\">active</td>"));
+        assertTrue(report.contains("<td><code>V3__index_users_status.sql</code></td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"active\">active</td>"));
+        assertTrue(report.contains("<td><code>V2__rewrite_status.sql</code></td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
+        assertTrue(report.contains("<td><code>V1__update_users.sql</code></td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">3</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
+        assertTrue(report.contains("<td><code>V8__data_change_with_unknown.sql</code></td><td class=\"number\">0</td><td class=\"number\">unknown</td><td class=\"number\">unknown</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"incomplete\">incomplete analysis</td>"));
+        assertTrue(report.contains("<td><code>V5__create_reporting_views.sql</code></td><td class=\"number\">2</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">1</td><td class=\"merge-target\"><div><code>V7__replace_user_ids.sql</code><span class=\"points\">views.user_ids</span></div></td><td class=\"partial\">partial merge candidate</td>"));
+        assertTrue(report.contains("<td><code>V4__create_user_names_legacy.sql</code></td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"merge-target\"><div><code>V6__replace_user_names.sql</code><span class=\"points\">views.user_names</span></div></td><td class=\"merge\">merge candidate</td>"));
     }
 
     @Test
@@ -238,7 +271,7 @@ class RunwayGeneratorTest {
         new RunwayGenerator().generate(options);
 
         assertTrue(Files.exists(options.resourceOutput().resolve(
-            "io/github/absketches/runway/generated/runway/V1__keywords/statement-000.sql"
+            "io/github/absketches/runway/generated/runway/GeneratedRunwayMigrations/V1__keywords/statement-000.sql"
         )));
     }
 
@@ -288,7 +321,7 @@ class RunwayGeneratorTest {
         new RunwayGenerator().generate(options);
         Path obsoleteSource = packageDirectory(options).resolve("V2_Obsolete.java");
         Path obsoleteResource = options.resourceOutput().resolve(
-            "io/github/absketches/runway/generated/runway/V2__obsolete/statement-000.sql"
+            "io/github/absketches/runway/generated/runway/GeneratedRunwayMigrations/V2__obsolete/statement-000.sql"
         );
         assertTrue(Files.exists(obsoleteSource));
         assertTrue(Files.exists(obsoleteResource));
@@ -299,6 +332,31 @@ class RunwayGeneratorTest {
         assertTrue(Files.notExists(obsoleteSource));
         assertTrue(Files.notExists(obsoleteResource));
         assertTrue(Files.exists(handwritten));
+    }
+
+    @Test
+    void doesNotRemoveOtherCatalogOutputInSamePackage() throws Exception {
+        Path firstInput = tempDir.resolve("first-runway");
+        Path secondInput = tempDir.resolve("second-runway");
+        Files.createDirectories(firstInput);
+        Files.createDirectories(secondInput);
+        Files.writeString(firstInput.resolve("V1__create_users.sql"), "create table users (id integer);\n");
+        Files.writeString(secondInput.resolve("V2__create_orders.sql"), "create table orders (id integer);\n");
+
+        CodegenOptions first = options(firstInput, null);
+        CodegenOptions second = options(secondInput, null, CodegenDialect.SQLITE, "OtherRunwayMigrations");
+        new RunwayGenerator().generate(second);
+        Path secondCatalog = packageDirectory(second).resolve("OtherRunwayMigrations.java");
+        Path secondSource = packageDirectory(second).resolve("V2_CreateOrders.java");
+        Path secondResource = second.resourceOutput().resolve(
+            "io/github/absketches/runway/generated/runway/OtherRunwayMigrations/V2__create_orders/statement-000.sql"
+        );
+
+        new RunwayGenerator().generate(first);
+
+        assertTrue(Files.exists(secondCatalog));
+        assertTrue(Files.exists(secondSource));
+        assertTrue(Files.exists(secondResource));
     }
 
     @Test
@@ -353,13 +411,21 @@ class RunwayGeneratorTest {
     }
 
     private CodegenOptions options(Path input, Path impactReport) {
+        return options(input, impactReport, CodegenDialect.SQLITE);
+    }
+
+    private CodegenOptions options(Path input, Path impactReport, CodegenDialect dialect) {
+        return options(input, impactReport, dialect, CLASS_NAME);
+    }
+
+    private CodegenOptions options(Path input, Path impactReport, CodegenDialect dialect, String className) {
         return new CodegenOptions(
             input,
             tempDir.resolve("sources"),
             tempDir.resolve("resources"),
             PACKAGE_NAME,
-            CLASS_NAME,
-            CodegenDialect.SQLITE,
+            className,
+            dialect,
             impactReport
         );
     }

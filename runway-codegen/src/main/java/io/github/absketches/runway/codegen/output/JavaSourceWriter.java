@@ -17,6 +17,10 @@ public final class JavaSourceWriter {
         return GENERATED_MARKER;
     }
 
+    public static String catalogMarker(String packageName, String className) {
+        return "// Runway catalog: " + packageName + "." + className;
+    }
+
     public static String writeCatalog(
         String packageName,
         String className,
@@ -32,6 +36,7 @@ public final class JavaSourceWriter {
         }
 
         return """
+            %s
             %s
             package %s;
 
@@ -49,6 +54,7 @@ public final class JavaSourceWriter {
             }
             """.formatted(
             GENERATED_MARKER,
+            catalogMarker(packageName, className),
             packageName,
             className,
             className,
@@ -58,9 +64,10 @@ public final class JavaSourceWriter {
         );
     }
 
-    public static String writeMigration(String packageName, ParsedMigration migration) {
+    public static String writeMigration(String packageName, String catalogClassName, ParsedMigration migration) {
         String className = migrationClassName(migration);
         return """
+            %s
             %s
             package %s;
 
@@ -82,6 +89,7 @@ public final class JavaSourceWriter {
             }
             """.formatted(
             GENERATED_MARKER,
+            catalogMarker(packageName, catalogClassName),
             packageName,
             className,
             className,
