@@ -45,7 +45,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <argLine></argLine>
-        <runway-core.version>2026.06.21.073447</runway-core.version>
+        <runway-core.version>2026.06.22.163448</runway-core.version>
         <runway-codegen.version>2026.06.22.162536</runway-codegen.version>
         <junit.version>5.14.4</junit.version>
         <jacoco.version>0.8.15</jacoco.version>
