@@ -16,7 +16,7 @@
         <embedded-postgres.version>2.2.2</embedded-postgres.version>
         <mariadb4j.version>3.3.1</mariadb4j.version>
         <mariadb-java-client.version>3.5.9</mariadb-java-client.version>
-        <postgresql-jdbc.version>42.7.4</postgresql-jdbc.version>
+        <postgresql-jdbc.version>42.7.11</postgresql-jdbc.version>
     </properties>
 
     <dependencies>
