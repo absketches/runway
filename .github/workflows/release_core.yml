@@ -41,7 +41,7 @@ jobs:
           fi
 
       - name: Checkout release commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
@@ -133,7 +133,7 @@ jobs:
     if: inputs.publish_github_packages
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
 
@@ -161,7 +161,7 @@ jobs:
     if: inputs.publish_sonatype
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
 
