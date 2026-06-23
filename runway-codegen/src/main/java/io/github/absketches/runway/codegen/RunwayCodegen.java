@@ -62,6 +62,7 @@ public final class RunwayCodegen {
               --class-name <name>       Generated migration catalog class name.
                                       Default: GeneratedRunwayMigrations
               --impact-output <file>    Generate a standalone HTML impact analysis report.
+              --analysis-only           Generate only the migration history analysis report.
               -h, --help                Show this help.
             """;
     }

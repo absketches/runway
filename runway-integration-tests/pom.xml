@@ -160,6 +160,30 @@
                             </arguments>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>generate-runway-analysis-only-report</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>io.github.absketches.runway.codegen.RunwayCodegen</mainClass>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>--input</argument>
+                                <argument>${project.basedir}/src/test/runway/sqlite</argument>
+                                <argument>--output</argument>
+                                <argument>${project.build.directory}/analysis-only/generated-test-sources/runway</argument>
+                                <argument>--resource-output</argument>
+                                <argument>${project.build.directory}/analysis-only/generated-test-resources/runway</argument>
+                                <argument>--dialect</argument>
+                                <argument>sqlite</argument>
+                                <argument>--impact-output</argument>
+                                <argument>${project.build.directory}/generated-test-resources/analysis-only/runway-impact.html</argument>
+                                <argument>--analysis-only</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
             <plugin>

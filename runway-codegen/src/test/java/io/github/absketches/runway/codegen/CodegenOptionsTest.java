@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CodegenOptionsTest {
     @Test
@@ -18,10 +19,34 @@ class CodegenOptionsTest {
     }
 
     @Test
+    void parsesAnalysisOnlyMode() {
+        CodegenOptions options = CodegenOptions.parse(new String[] {
+            "--input", "migrations",
+            "--dialect", "postgresql",
+            "--impact-output", "target/runway-impact.html",
+            "--analysis-only"
+        });
+
+        assertTrue(options.analysisOnly());
+    }
+
+    @Test
     void requiresDialect() {
         assertThrows(
             IllegalArgumentException.class,
             () -> CodegenOptions.parse(new String[] {"--input", "migrations"})
+        );
+    }
+
+    @Test
+    void analysisOnlyRequiresImpactOutput() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> CodegenOptions.parse(new String[] {
+                "--input", "migrations",
+                "--dialect", "postgresql",
+                "--analysis-only"
+            })
         );
     }
 

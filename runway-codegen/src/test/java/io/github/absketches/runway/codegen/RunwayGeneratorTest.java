@@ -259,6 +259,23 @@ class RunwayGeneratorTest {
     }
 
     @Test
+    void analysisOnlyWritesImpactReportWithoutRuntimeCatalogOutput() throws Exception {
+        Path input = tempDir.resolve("runway");
+        Files.createDirectories(input);
+        Files.writeString(input.resolve("V1.0__create-users.sql"), "create table users (id integer);\n");
+        Files.writeString(input.resolve("V1_1__create-users.sql"), "create table users_archive (id integer);\n");
+        Path impactReport = tempDir.resolve("impact.html");
+
+        CodegenOptions options = analysisOnlyOptions(input, impactReport);
+        new RunwayGenerator().generate(options);
+
+        assertTrue(Files.exists(impactReport));
+        assertTrue(Files.readString(impactReport).contains("Runway Impact Report"));
+        assertTrue(Files.notExists(packageDirectory(options)));
+        assertTrue(Files.notExists(options.resourceOutput()));
+    }
+
+    @Test
     void doesNotRejectUnsupportedKeywordsInsideCommentsOrStrings() throws Exception {
         Path input = tempDir.resolve("runway");
         Files.createDirectories(input);
@@ -426,7 +443,21 @@ class RunwayGeneratorTest {
             PACKAGE_NAME,
             className,
             dialect,
-            impactReport
+            impactReport,
+            false
+        );
+    }
+
+    private CodegenOptions analysisOnlyOptions(Path input, Path impactReport) {
+        return new CodegenOptions(
+            input,
+            tempDir.resolve("sources"),
+            tempDir.resolve("resources"),
+            PACKAGE_NAME,
+            CLASS_NAME,
+            CodegenDialect.SQLITE,
+            impactReport,
+            true
         );
     }
 

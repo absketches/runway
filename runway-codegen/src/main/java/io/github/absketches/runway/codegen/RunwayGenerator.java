@@ -39,11 +39,19 @@ final class RunwayGenerator {
                     .sorted(RunwayGenerator::compare)
                     .toList();
             }
-            validateDuplicates(migrations);
+            validateDuplicateVersions(migrations);
+            if (!options.analysisOnly()) {
+                validateGeneratedClassNames(migrations);
+            }
             Map<ParsedStatement, SqlImpact> analysis =
                 options.impactOutput() != null
                     ? analyze(migrations)
                     : Map.of();
+
+            if (options.analysisOnly()) {
+                writeImpactReport(options, migrations, analysis);
+                return;
+            }
 
             Path packageDirectory = options.sourceOutput().resolve(options.packageName().replace('.', '/'));
             Path resourceDirectory = catalogResourceDirectory(options);
@@ -214,13 +222,18 @@ final class RunwayGenerator {
         return comparator.compare(left, right);
     }
 
-    private static void validateDuplicates(List<ParsedMigration> migrations) {
+    private static void validateDuplicateVersions(List<ParsedMigration> migrations) {
         Set<String> versions = new HashSet<>();
-        Set<String> classNames = new HashSet<>();
         for (ParsedMigration migration : migrations) {
             if (!versions.add(migration.version())) {
                 throw new CodegenException("Duplicate versioned migration version: " + migration.version());
             }
+        }
+    }
+
+    private static void validateGeneratedClassNames(List<ParsedMigration> migrations) {
+        Set<String> classNames = new HashSet<>();
+        for (ParsedMigration migration : migrations) {
             if (!classNames.add(JavaSourceWriter.migrationClassName(migration))) {
                 throw new CodegenException(
                     "Migration names generate the same Java class: " + migration.path().getFileName()

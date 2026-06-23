@@ -1,8 +1,8 @@
 # Runway
 
-Runway is a native-first, reflection-free database migration engine for Java applications.
-It serves as an alternative to Flyway which uses runtime reflection.
-Runway also provides migration impact report to help consolidate and clean-up large migration histories.
+Runway is a native-first, reflection-free database migration engine. It serves as an alternative to Flyway which uses runtime reflection.
+Runway also provides migration impact reports to help consolidate and clean up large migration histories.
+There is also an analysis-only mode to generate migration history reports without using the Runway migration engine.
 
 ![img.png](impact-analysis-snap.png)
 
@@ -97,6 +97,8 @@ Generate migrations during `generate-sources` and add generated sources/resource
                             <argument>GeneratedRunwayMigrations</argument>
                             <argument>--dialect</argument>
                             <argument>postgresql</argument>
+                            <argument>--impact-output</argument>
+                            <argument>${project.build.directory}/generated-test-resources/runway-impact.html</argument>
                         </arguments>
                     </configuration>
                 </execution>
@@ -214,7 +216,21 @@ java -cp runway-codegen/target/runway-codegen-<version>.jar \
 Use --help to print the supported command-line options.
 ```bash
 java -cp runway-codegen/target/runway-codegen-<version>.jar \
-io.github.absketches.runway.codegen.RunwayCodegen --help
+  io.github.absketches.runway.codegen.RunwayCodegen --help
+```
+
+### Migration history analysis only
+
+Use **analysis-only** mode when you only want a migration history analysis report and do not want to generate a runtime
+migration catalog:
+
+```bash
+java -cp runway-codegen/target/runway-codegen-<version>.jar \
+  io.github.absketches.runway.codegen.RunwayCodegen \
+  --input src/main/resources/db/migration \
+  --dialect postgresql \
+  --impact-output build/reports/runway/impact.html \
+  --analysis-only
 ```
 
 ### Runtime
