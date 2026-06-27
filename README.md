@@ -4,7 +4,7 @@ Runway is a native-first, reflection-free database migration engine. It serves a
 Runway also provides migration impact reports to help consolidate and clean up large migration histories.
 There is also an analysis-only mode to generate migration history reports without using the Runway migration engine.
 
-![img.png](impact-analysis-snap.png)
+![Runway Impact Report](runway-impact-snap.png)
 
 `runway-codegen` compiles migration files into generated Java metadata and one generated UTF-8 resource per SQL statement.
 Runtime migration execution does not scan for files or parse SQL.
@@ -267,15 +267,6 @@ These dialects are supported at the moment:
 - `mysql`
 - `mariadb`
 - `sqlite`
-
-Codegen splits files into ordered statement resources. Core receives only their ordered resource paths; impact metadata is
-not generated into runtime classes. Supplying `--impact-output` runs impact analysis, emits a standalone HTML report with
-sticky headers, search, status filtering, and a table/column matrix with SQL files in chronological descending order, and
-prints the generated report path to the console. The report includes a `database objects` group for indexes, views, and
-other schema objects. A file is marked as a `merge candidate` only when every schema data point it touches is represented
-again by a later SQL file. This is a consolidation signal, not an instruction to delete historical migrations. DML and
-incomplete non-DML analysis are reported separately; incomplete analysis takes precedence when a file contains both. The
-consolidation table lists the later file and schema point that supersede each older schema write.
 
 **Procedure and function definitions will be applied on the database but their analysis is currently not supported and will be marked as incomplete**
 

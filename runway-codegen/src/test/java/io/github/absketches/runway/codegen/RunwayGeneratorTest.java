@@ -105,10 +105,10 @@ class RunwayGeneratorTest {
         )));
 
         String report = Files.readString(impactReport);
-        assertTrue(report.contains(">functions</th>"));
-        assertTrue(report.contains(">procedures</th>"));
-        assertTrue(report.contains(">user_display_name</th>"));
-        assertTrue(report.contains(">runway_touch_audit_metadata</th>"));
+        assertTrue(report.contains("<input type=\"checkbox\" value=\"functions\"><span>functions</span>"));
+        assertTrue(report.contains("<input type=\"checkbox\" value=\"procedures\"><span>procedures</span>"));
+        assertTrue(report.contains("functions.user_display_name"));
+        assertTrue(report.contains("procedures.runway_touch_audit_metadata"));
         assertTrue(report.contains("<tr data-file-row data-file=\"V1__create_display_name_function.sql\" data-status=\"incomplete analysis\""));
         assertTrue(report.contains("<tr data-file-row data-file=\"V2__create_audit_procedure.sql\" data-status=\"incomplete analysis\""));
     }
@@ -152,19 +152,23 @@ class RunwayGeneratorTest {
         String report = Files.readString(impactReport);
         assertTrue(report.contains("<!doctype html>"));
         assertTrue(report.contains("<input id=\"search\""));
+        assertTrue(report.contains("<button id=\"copy-selection\" type=\"button\" disabled>Copy selected</button>"));
         assertTrue(report.contains("<button id=\"clear-selection\" type=\"button\" disabled>Clear selection</button>"));
+        assertTrue(report.contains("copyColumns = ["));
+        assertTrue(report.contains("[\"SQL file\", \"copyFile\"]"));
         assertTrue(report.contains("row.classList.toggle(\"selected\")"));
-        assertTrue(report.contains("messages (table)"));
-        assertTrue(report.contains("columns"));
-        assertTrue(report.contains("data-column-search=\"messages (table) columns content messages.content\""));
-        assertTrue(report.contains(">content</th>"));
+        assertTrue(report.contains("<h2>Migration Files</h2>"));
+        assertTrue(report.contains("<input type=\"checkbox\" value=\"messages\"><span>messages</span>"));
+        assertTrue(report.contains("messages.content"));
         assertTrue(report.contains("<tr data-file-row data-file=\"V1__message.sql\" data-status=\"data changes\""));
-        assertTrue(report.contains("<span class=\"marker data\">D</span>"));
-        assertTrue(report.contains("<td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
+        assertTrue(report.contains("data-copy-file=\"V1__message.sql\""));
+        assertTrue(report.contains("data-copy-runtime-writes=\"messages.content\""));
+        assertTrue(report.contains("<span class=\"status data-change\">data changes</span>"));
+        assertTrue(report.contains("<span class=\"chip data\" title=\"messages.content\">messages.content</span>"));
     }
 
     @Test
-    void impactReportShowsResourceGridAndConsolidationStatus() throws Exception {
+    void impactReportShowsSparseRowsAndConsolidationStatus() throws Exception {
         Path input = tempDir.resolve("runway");
         Files.createDirectories(input);
         Files.writeString(input.resolve("V1__update_users.sql"), """
@@ -228,16 +232,20 @@ class RunwayGeneratorTest {
         new RunwayGenerator().generate(options(input, impactReport));
 
         String report = Files.readString(impactReport);
-        assertTrue(report.contains("<h2>Table and Object Matrix</h2>"));
-        assertTrue(report.contains("users (table)"));
-        assertTrue(report.contains("roles (table)"));
-        assertTrue(report.contains("database objects"));
-        assertTrue(report.contains(">indexes</th>"));
-        assertTrue(report.contains(">triggers</th>"));
-        assertTrue(report.indexOf(">database objects</th>") > report.indexOf(">roles (table)</th>"));
-        assertTrue(report.contains(">users_status_idx</th>"));
-        assertTrue(report.contains(">users_status_audit</th>"));
-        assertTrue(!report.contains("<th>(table)</th>"));
+        assertTrue(report.contains("<h2>Migration Files</h2>"));
+        assertTrue(report.contains("<span>Migration files</span>"));
+        assertTrue(report.contains("<span>Schema points</span>"));
+        assertTrue(report.contains("<label id=\"table-filter-label\">Tables</label>"));
+        assertTrue(report.contains("<button class=\"filter-clear\" type=\"button\" data-clear-filter=\"table-filter\">Clear</button>"));
+        assertTrue(report.contains("<input type=\"checkbox\" value=\"users\"><span>users</span>"));
+        assertTrue(report.contains("<input type=\"checkbox\" value=\"roles\"><span>roles</span>"));
+        assertTrue(report.contains("<input type=\"checkbox\" value=\"indexes\"><span>indexes</span>"));
+        assertTrue(report.contains("<input type=\"checkbox\" value=\"triggers\"><span>triggers</span>"));
+        assertTrue(report.contains("clearCheckedValues(tableFilter)"));
+        assertTrue(report.contains("writeClipboard(lines.join("));
+        assertTrue(report.contains("indexes.users_status_idx"));
+        assertTrue(report.contains("triggers.users_status_audit"));
+        assertTrue(!report.contains("Table and Object Matrix"));
         assertTrue(report.contains("<tr data-file-row data-file=\"V9__audit_user_status_changes.sql\" data-status=\"active\""));
         assertTrue(report.contains("<tr data-file-row data-file=\"V3__index_users_status.sql\" data-status=\"active\""));
         assertTrue(report.contains("<tr data-file-row data-file=\"V2__rewrite_status.sql\" data-status=\"data changes\""));
@@ -245,17 +253,14 @@ class RunwayGeneratorTest {
         assertTrue(report.contains("<tr data-file-row data-file=\"V8__data_change_with_unknown.sql\" data-status=\"incomplete analysis\""));
         assertTrue(report.contains("<tr data-file-row data-file=\"V5__create_reporting_views.sql\" data-status=\"partial merge candidate\""));
         assertTrue(report.contains("<tr data-file-row data-file=\"V4__create_user_names_legacy.sql\" data-status=\"merge candidate\""));
-        assertTrue(report.contains("title=\"Superseded by V6__replace_user_names.sql\">w</span>"));
-        assertTrue(report.contains("<h2>Consolidation Candidates</h2>"));
-        assertTrue(report.contains("Runtime write points"));
-        assertTrue(report.contains("Runtime read points"));
-        assertTrue(report.contains("<td><code>V9__audit_user_status_changes.sql</code></td><td class=\"number\">1</td><td class=\"number\">2</td><td class=\"number\">1</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"active\">active</td>"));
-        assertTrue(report.contains("<td><code>V3__index_users_status.sql</code></td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"active\">active</td>"));
-        assertTrue(report.contains("<td><code>V2__rewrite_status.sql</code></td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
-        assertTrue(report.contains("<td><code>V1__update_users.sql</code></td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">3</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"data-change\">data changes</td>"));
-        assertTrue(report.contains("<td><code>V8__data_change_with_unknown.sql</code></td><td class=\"number\">0</td><td class=\"number\">unknown</td><td class=\"number\">unknown</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"merge-target\"></td><td class=\"incomplete\">incomplete analysis</td>"));
-        assertTrue(report.contains("<td><code>V5__create_reporting_views.sql</code></td><td class=\"number\">2</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"number\">1</td><td class=\"merge-target\"><div><code>V7__replace_user_ids.sql</code><span class=\"points\">views.user_ids</span></div></td><td class=\"partial\">partial merge candidate</td>"));
-        assertTrue(report.contains("<td><code>V4__create_user_names_legacy.sql</code></td><td class=\"number\">1</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">0</td><td class=\"number\">1</td><td class=\"merge-target\"><div><code>V6__replace_user_names.sql</code><span class=\"points\">views.user_names</span></div></td><td class=\"merge\">merge candidate</td>"));
+        assertTrue(report.contains("<th>Runtime writes</th>"));
+        assertTrue(report.contains("<th>Runtime reads</th>"));
+        assertTrue(report.contains("<code>V7__replace_user_ids.sql</code>"));
+        assertTrue(report.contains("<code>V6__replace_user_names.sql</code>"));
+        assertTrue(report.contains("<span class=\"chip schema\" title=\"views.user_ids\">views.user_ids</span>"));
+        assertTrue(report.contains("<span class=\"chip schema\" title=\"views.user_names\">views.user_names</span>"));
+        assertTrue(report.contains("<span class=\"chip warning\" title=\"unknown\">unknown</span>"));
+        assertTrue(report.contains("<summary>2 statements</summary>"));
     }
 
     @Test

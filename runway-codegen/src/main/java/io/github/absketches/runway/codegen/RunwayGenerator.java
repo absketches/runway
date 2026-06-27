@@ -9,7 +9,7 @@ import io.github.absketches.runway.codegen.migration.ParsedMigrationName;
 import io.github.absketches.runway.codegen.migration.ParsedStatement;
 import io.github.absketches.runway.codegen.migration.VersionKey;
 import io.github.absketches.runway.codegen.output.JavaSourceWriter;
-import io.github.absketches.runway.codegen.output.MigrationImpactReportWriter;
+import io.github.absketches.runway.codegen.output.report.MigrationImpactReportWriter;
 import io.github.absketches.runway.codegen.sql.SqlNormalizer;
 import io.github.absketches.runway.codegen.sql.split.SqlStatementSplitter;
 

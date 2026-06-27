@@ -19,8 +19,8 @@ class AnalysisOnlyIntegrationTest {
         String html = Files.readString(report);
         assertTrue(html.contains("Runway Impact Report"));
         assertTrue(html.contains("V1__create_users.sql"));
-        assertTrue(html.contains("Table and Object Matrix"));
-        assertTrue(html.contains("Consolidation Candidates"));
+        assertTrue(html.contains("Migration Files"));
+        assertTrue(html.contains("Schema points"));
 
         assertFalse(Files.exists(target.resolve("analysis-only/generated-test-sources/runway")));
         assertFalse(Files.exists(target.resolve("analysis-only/generated-test-resources/runway")));
