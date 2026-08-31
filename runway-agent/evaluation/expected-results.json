@@ -1,0 +1,10 @@
+{
+  "rubric": {
+    "primaryMetric": "correctly classified cases out of 10",
+    "correctClassification": "The review contains a finding or summary that matches the expected classification without a forbidden claim.",
+    "unsupportedClaim": "The output makes a claim listed in forbiddenClaims or references a migration/object absent from the case evidence.",
+    "criticalMiss": "The output misses all requiredEvidence terms for a replacement or incomplete-analysis case.",
+    "evidenceCoverage": "Fraction of requiredEvidence terms found in the output text."
+  },
+  "casesFile": "cases.json"
+}

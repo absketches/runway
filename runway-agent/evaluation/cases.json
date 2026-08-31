@@ -1,0 +1,92 @@
+[
+  {
+    "id": "replace-user-names",
+    "description": "A later migration drops and recreates the same user_names view with a wider projection.",
+    "files": ["V90__create_user_names_legacy.sql", "V102__create_user_names.sql"],
+    "expectedClassification": "NEEDS_HUMAN_REVIEW",
+    "requiredEvidence": ["user_names", "drop view if exists user_names", "create or replace view user_names"],
+    "forbiddenClaims": ["safe to delete", "safe to apply", "production can remove"],
+    "difficulty": "NORMAL"
+  },
+  {
+    "id": "replace-user-ids",
+    "description": "A later migration drops and recreates user_ids with additional name data.",
+    "files": ["V91__create_reporting_views.sql", "V105__replace_user_ids.sql"],
+    "expectedClassification": "NEEDS_HUMAN_REVIEW",
+    "requiredEvidence": ["user_ids", "drop view if exists user_ids", "create or replace view user_ids"],
+    "forbiddenClaims": ["safe to delete", "safe to apply", "production can remove"],
+    "difficulty": "NORMAL"
+  },
+  {
+    "id": "replace-audit-events",
+    "description": "A later migration replaces audit_events and adds id to the view projection.",
+    "files": ["V92__create_legacy_audit_views.sql", "V107__replace_audit_events.sql"],
+    "expectedClassification": "NEEDS_HUMAN_REVIEW",
+    "requiredEvidence": ["audit_events", "drop view if exists audit_events", "create or replace view audit_events"],
+    "forbiddenClaims": ["safe to delete", "safe to apply"],
+    "difficulty": "NORMAL"
+  },
+  {
+    "id": "replace-audit-severities",
+    "description": "A later migration replaces audit_severities and changes it into an aggregate view.",
+    "files": ["V92__create_legacy_audit_views.sql", "V108__replace_audit_severities.sql"],
+    "expectedClassification": "NEEDS_HUMAN_REVIEW",
+    "requiredEvidence": ["audit_severities", "drop view if exists audit_severities", "group by"],
+    "forbiddenClaims": ["identical replacement", "safe to delete"],
+    "difficulty": "NORMAL"
+  },
+  {
+    "id": "audit-summary-not-replacement",
+    "description": "audit_summary reads audit_log but does not replace a same-named earlier object.",
+    "files": ["V92__create_legacy_audit_views.sql", "V101__create_audit_summary.sql"],
+    "expectedClassification": "SAFE_TO_CONSIDER",
+    "requiredEvidence": ["audit_summary", "audit_log"],
+    "forbiddenClaims": ["audit_summary replaces audit_events", "audit_summary replaces audit_severities"],
+    "difficulty": "NORMAL"
+  },
+  {
+    "id": "ordinary-data-backfills",
+    "description": "Two user table backfills are ordinary data changes and should not be treated as obsolete migrations.",
+    "files": ["V103__backfill_user_time_zone.sql", "V104__backfill_user_nicknames.sql"],
+    "expectedClassification": "SAFE_TO_CONSIDER",
+    "requiredEvidence": ["update \"users\"", "time_zone", "nickname"],
+    "forbiddenClaims": ["obsolete migration", "replacement relationship", "safe to delete"],
+    "difficulty": "NORMAL"
+  },
+  {
+    "id": "incomplete-analysis-view",
+    "description": "The workflow must treat incomplete analysis as a human-review condition.",
+    "files": ["V90__create_user_names_legacy.sql", "V106__create_incomplete_analysis_view.sql"],
+    "expectedClassification": "INSUFFICIENT_EVIDENCE",
+    "requiredEvidence": ["user_name_filter", "where name is not null"],
+    "forbiddenClaims": ["high confidence", "safe to delete", "safe to execute"],
+    "difficulty": "NORMAL"
+  },
+  {
+    "id": "multi-object-legacy-audit",
+    "description": "One migration creates two legacy audit views later touched by separate replacement migrations.",
+    "files": ["V92__create_legacy_audit_views.sql", "V107__replace_audit_events.sql", "V108__replace_audit_severities.sql"],
+    "expectedClassification": "NEEDS_HUMAN_REVIEW",
+    "requiredEvidence": ["audit_events", "audit_severities", "drop view if exists"],
+    "forbiddenClaims": ["single identical replacement", "safe to delete"],
+    "difficulty": "NORMAL"
+  },
+  {
+    "id": "reporting-view-mixed",
+    "description": "One migration creates user_ids and audit_event_names, but only user_ids is replaced later.",
+    "files": ["V91__create_reporting_views.sql", "V105__replace_user_ids.sql", "V107__replace_audit_events.sql"],
+    "expectedClassification": "NEEDS_HUMAN_REVIEW",
+    "requiredEvidence": ["user_ids", "audit_event_names", "audit_events"],
+    "forbiddenClaims": ["audit_event_names is replaced", "all reporting views are obsolete"],
+    "difficulty": "CHALLENGING"
+  },
+  {
+    "id": "same-table-not-replacement",
+    "description": "Migrations that read or update users are dependency-sensitive but not replacements merely because they touch users.",
+    "files": ["V90__create_user_names_legacy.sql", "V103__backfill_user_time_zone.sql", "V104__backfill_user_nicknames.sql"],
+    "expectedClassification": "SAFE_TO_CONSIDER",
+    "requiredEvidence": ["users", "user_names", "time_zone", "nickname"],
+    "forbiddenClaims": ["user_names replaces backfill", "backfill replaces view", "obsolete migration"],
+    "difficulty": "NORMAL"
+  }
+]

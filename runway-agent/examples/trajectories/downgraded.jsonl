@@ -1,0 +1,7 @@
+{"payload":{"systemPrompt":"Always expose uncertainty and cite concrete evidence."},"type":"instruction"}
+{"payload":{"arguments":{"directory":"runway-integration-tests/src/test/runway/postgresql"},"name":"list_migrations"},"type":"tool_request"}
+{"payload":{"name":"list_migrations","result":["V106__create_incomplete_analysis_view.sql"]},"type":"tool_response"}
+{"payload":{"name":"run_runway_analysis","result":{"overview":{"statusCounts":{"Incomplete analysis":1}},"report":"runway-agent/outputs/runway-impact-demo.html"}},"type":"tool_response"}
+{"payload":{"files":["V106__create_incomplete_analysis_view.sql"]},"type":"selected_files"}
+{"payload":{"draft":{"findings":[{"id":"finding-1","decision":"SAFE_TO_CONSIDER","confidence":"HIGH"}]}},"type":"draft_finding"}
+{"payload":{"accepted":[],"changed":[{"id":"finding-1","issues":["Incomplete Runway analysis cannot produce an unqualified high-confidence recommendation."]}],"rejected":[]},"type":"verification_feedback"}

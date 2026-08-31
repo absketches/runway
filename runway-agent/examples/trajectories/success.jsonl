@@ -1,0 +1,7 @@
+{"payload":{"systemPrompt":"Runway provides deterministic facts; the agent interprets their significance."},"type":"instruction"}
+{"payload":{"arguments":{"directory":"runway-integration-tests/src/test/runway/postgresql"},"name":"list_migrations"},"type":"tool_request"}
+{"payload":{"name":"list_migrations","result":["V90__create_user_names_legacy.sql","V102__create_user_names.sql"]},"type":"tool_response"}
+{"payload":{"name":"run_runway_analysis","result":{"overview":{"fileCount":2},"report":"runway-agent/outputs/runway-impact-demo.html"}},"type":"tool_response"}
+{"payload":{"files":["V90__create_user_names_legacy.sql","V102__create_user_names.sql"]},"type":"selected_files"}
+{"payload":{"draft":{"findings":[{"id":"finding-1","decision":"NEEDS_HUMAN_REVIEW","confidence":"MEDIUM"}]}},"type":"draft_finding"}
+{"payload":{"accepted":[{"id":"finding-1"}],"changed":[],"rejected":[]},"type":"verification_feedback"}
