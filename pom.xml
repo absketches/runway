@@ -48,9 +48,9 @@
         <runway-core.version>2026.06.22.230052</runway-core.version>
         <runway-codegen.version>2026.06.27.204441</runway-codegen.version>
         <junit.version>5.14.4</junit.version>
-        <jacoco.version>0.8.15</jacoco.version>
+        <jacoco.version>0.8.16</jacoco.version>
         <slf4j.version>1.7.36</slf4j.version>
-        <sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>
+        <sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>
     </properties>
 
     <dependencyManagement>
@@ -76,7 +76,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.6.0</version>
+                    <version>3.6.1</version>
                     <configuration>
                         <argLine>@{argLine} --enable-native-access=ALL-UNNAMED</argLine>
                         <useModulePath>false</useModulePath>
@@ -95,12 +95,12 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>build-helper-maven-plugin</artifactId>
-                    <version>3.6.1</version>
+                    <version>3.6.2</version>
                 </plugin>
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.6.3</version>
+                    <version>3.6.4</version>
                 </plugin>
                 <plugin>
                     <groupId>org.jacoco</groupId>
@@ -193,7 +193,7 @@
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
                         <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.11.0</version>
+                        <version>0.12.0</version>
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
